@@ -535,7 +535,7 @@ class CodeGenerator(NodeVisitor):
                 except IndexError:
                     self.fail(
                         "When defining macros or call blocks the "
-                        'special "caller" argument must be omitted '
+                              'special "caller" argument must be omitted '
                         "or be given a default.",
                         node.lineno,
                     )
@@ -552,8 +552,14 @@ class CodeGenerator(NodeVisitor):
         # macros are delayed, they never require output checks
         frame.require_output_check = False
         frame.symbols.analyze_node(node)
-        self.writeline("%s(%s):" % (self.func("macro"), ", ".join(args)), node)
+        self.writeline('outer_context = context')
+        self.writeline('%s(%s):' %
+                       (self.func('macro'), ', '.join(['context'] + args)),
+                       node)
         self.indent()
+        self.writeline('nonlocal outer_context')
+        self.writeline('context = context or outer_context')
+        self.writeline('resolve = context.resolve_or_missing')
 
         self.buffer(frame)
         self.enter_frame(frame)
@@ -1356,7 +1362,7 @@ class CodeGenerator(NodeVisitor):
             self.write("(escape if context.eval_ctx.autoescape else to_string)(")
         elif frame.eval_ctx.autoescape:
             self.write("escape(")
-        else:
+            else:
             self.write("to_string(")
 
         if finalize.src is not None:
@@ -1412,39 +1418,39 @@ class CodeGenerator(NodeVisitor):
             else:
                 body.append([const])
 
-        if frame.buffer is not None:
-            if len(body) == 1:
+            if frame.buffer is not None:
+                if len(body) == 1:
                 self.writeline("%s.append(" % frame.buffer)
-            else:
+                else:
                 self.writeline("%s.extend((" % frame.buffer)
 
-            self.indent()
+                self.indent()
 
-        for item in body:
-            if isinstance(item, list):
+            for item in body:
+                if isinstance(item, list):
                 # A group of constant data to join and output.
                 val = self._output_const_repr(item)
 
-                if frame.buffer is None:
+                    if frame.buffer is None:
                     self.writeline("yield " + val)
-                else:
+                    else:
                     self.writeline(val + ",")
-            else:
-                if frame.buffer is None:
-                    self.writeline("yield ", item)
                 else:
-                    self.newline(item)
+                    if frame.buffer is None:
+                    self.writeline("yield ", item)
+                    else:
+                        self.newline(item)
 
                 # A node to be evaluated at runtime.
                 self._output_child_pre(item, frame, finalize)
-                self.visit(item, frame)
+                    self.visit(item, frame)
                 self._output_child_post(item, frame, finalize)
 
-                if frame.buffer is not None:
+                    if frame.buffer is not None:
                     self.write(",")
 
-        if frame.buffer is not None:
-            self.outdent()
+            if frame.buffer is not None:
+                self.outdent()
             self.writeline(")" if len(body) == 1 else "))")
 
         if frame.require_output_check:

@@ -26,21 +26,21 @@ def test_env():
 class TestImports(object):
     def test_context_imports(self, test_env):
         t = test_env.from_string('{% import "module" as m %}{{ m.test() }}')
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env.from_string(
             '{% import "module" as m without context %}{{ m.test() }}'
         )
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env.from_string(
             '{% import "module" as m with context %}{{ m.test() }}'
         )
         assert t.render(foo=42) == "[42|23]"
         t = test_env.from_string('{% from "module" import test %}{{ test() }}')
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env.from_string(
             '{% from "module" import test without context %}{{ test() }}'
         )
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == '"[42|23]"
         t = test_env.from_string(
             '{% from "module" import test with context %}{{ test() }}'
         )
@@ -145,7 +145,7 @@ class TestIncludes(object):
         env = Environment(
             loader=DictLoader(
                 dict(
-                    main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
+            main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
                     item="{{ item }}",
                 )
             )

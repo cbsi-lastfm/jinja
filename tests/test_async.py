@@ -133,21 +133,22 @@ def test_env_async():
 class TestAsyncImports(object):
     def test_context_imports(self, test_env_async):
         t = test_env_async.from_string('{% import "module" as m %}{{ m.test() }}')
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == '[42|23]'
+        assert t.render(foo=42) == "[42|23]"
         t = test_env_async.from_string(
             '{% import "module" as m without context %}{{ m.test() }}'
         )
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env_async.from_string(
             '{% import "module" as m with context %}{{ m.test() }}'
         )
         assert t.render(foo=42) == "[42|23]"
         t = test_env_async.from_string('{% from "module" import test %}{{ test() }}')
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env_async.from_string(
             '{% from "module" import test without context %}{{ test() }}'
         )
-        assert t.render(foo=42) == "[|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env_async.from_string(
             '{% from "module" import test with context %}{{ test() }}'
         )
@@ -235,7 +236,7 @@ class TestAsyncIncludes(object):
         env = Environment(
             loader=DictLoader(
                 dict(
-                    main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
+            main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
                     item="{{ item }}",
                 )
             )
@@ -362,8 +363,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-                    dict(a=1, b=[dict(a=1), dict(a=2)]),
-                    dict(a=2, b=[dict(a=1), dict(a=2)]),
+            dict(a=1, b=[dict(a=1), dict(a=2)]),
+            dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -381,8 +382,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-                    dict(a=1, b=[dict(a=1), dict(a=2)]),
-                    dict(a=2, b=[dict(a=1), dict(a=2)]),
+            dict(a=1, b=[dict(a=1), dict(a=2)]),
+            dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -397,8 +398,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-                    dict(a=1, b=[dict(a=1), dict(a=2)]),
-                    dict(a=2, b=[dict(a=1), dict(a=2)]),
+            dict(a=1, b=[dict(a=1), dict(a=2)]),
+            dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -413,8 +414,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-                    dict(a=1, b=[dict(a=1), dict(a=2)]),
-                    dict(a=2, b=[dict(a=1), dict(a=2)]),
+            dict(a=1, b=[dict(a=1), dict(a=2)]),
+            dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )

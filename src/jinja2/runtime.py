@@ -22,7 +22,7 @@ from .exceptions import TemplateRuntimeError  # noqa: F401
 from .exceptions import UndefinedError
 from .nodes import EvalContext
 from .utils import concat
-from .utils import evalcontextfunction
+from .utils import contextfunction
 from .utils import internalcode
 from .utils import missing
 from .utils import Namespace  # noqa: F401
@@ -595,7 +595,7 @@ class Macro(object):
         self._default_autoescape = default_autoescape
 
     @internalcode
-    @evalcontextfunction
+    @contextfunction
     def __call__(self, *args, **kwargs):
         # This requires a bit of explanation,  In the past we used to
         # decide largely based on compile-time information if a macro is
@@ -613,14 +613,16 @@ class Macro(object):
         # argument to callables otherwise anyway.  Worst case here is
         # that if no eval context is passed we fall back to the compile
         # time autoescape flag.
-        if args and isinstance(args[0], EvalContext):
-            autoescape = args[0].autoescape
+        if args and isinstance(args[0], Context):
+            context = args[0]
+            autoescape = context.eval_ctx.autoescape
             args = args[1:]
         else:
+            context = None
             autoescape = self._default_autoescape
 
         # try to consume the positional arguments
-        arguments = list(args[: self._argument_count])
+        arguments = list(args[:self._argument_count])
         off = len(arguments)
 
         # For information why this is necessary refer to the handling
@@ -665,13 +667,14 @@ class Macro(object):
                 % (self.name, next(iter(kwargs)))
             )
         if self.catch_varargs:
-            arguments.append(args[self._argument_count :])
+            arguments.append(args[self._argument_count:])
         elif len(args) > self._argument_count:
             raise TypeError(
                 "macro %r takes not more than %d argument(s)"
                 % (self.name, len(self.arguments))
             )
 
+        arguments = [context] + arguments
         return self._invoke(arguments, autoescape)
 
     def _invoke(self, arguments, autoescape):
@@ -725,19 +728,19 @@ class Undefined(object):
         if self._undefined_hint:
             return self._undefined_hint
 
-        if self._undefined_obj is missing:
+            if self._undefined_obj is missing:
             return "%r is undefined" % self._undefined_name
 
         if not isinstance(self._undefined_name, string_types):
             return "%s has no element %r" % (
-                object_type_repr(self._undefined_obj),
+                    object_type_repr(self._undefined_obj),
                 self._undefined_name,
-            )
+                )
 
         return "%r has no attribute %r" % (
-            object_type_repr(self._undefined_obj),
+                    object_type_repr(self._undefined_obj),
             self._undefined_name,
-        )
+                )
 
     @internalcode
     def _fail_with_undefined_error(self, *args, **kwargs):
