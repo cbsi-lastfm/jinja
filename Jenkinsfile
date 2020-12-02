@@ -35,7 +35,7 @@ pipeline {
 
             agent {
                 docker {
-                    image 'python:3.5'
+                    image 'python:3.7.3'
                     args '-u root:root -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group'
                 }
             }
