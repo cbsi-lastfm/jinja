@@ -51,19 +51,19 @@ pipeline {
                 stash includes: '*.whl', name: 'wheel_artifacts'
             }
 
-            stage("Upload artifacts to nexus"){
-                steps{
-                    unstash 'wheel_artifacts'
-                    script {
-                        utilities.uploadPython wheel: '*.whl'
-                    }
-                }
-            }
-
 
             post{
                 always{
                     cleanWs deleteDirs: true
+                }
+            }
+        }
+
+        stage("Upload artifacts to nexus"){
+            steps{
+                unstash 'wheel_artifacts'
+                script {
+                    utilities.uploadPython wheel: '*.whl'
                 }
             }
         }
