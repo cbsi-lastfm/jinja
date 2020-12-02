@@ -47,15 +47,8 @@ pipeline {
                   python3 setup.py sdist bdist_wheel
                   chown -R jenkins:jenkins .
                 '''
-                stash includes: '*.egg', name: 'egg_artifacts'
-                stash includes: '*.whl', name: 'wheel_artifacts'
-            }
-
-
-            post{
-                always{
-                    cleanWs deleteDirs: true
-                }
+                stash includes: 'Jinja2*.egg', name: 'egg_artifacts'
+                stash includes: 'Jinja2*.whl', name: 'wheel_artifacts'
             }
         }
 
@@ -67,6 +60,12 @@ pipeline {
                     utilities.uploadPython egg: '*.egg', wheel: '*.whl'
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs cleanWhenFailure: false
         }
     }
 }
