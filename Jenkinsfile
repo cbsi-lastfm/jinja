@@ -49,7 +49,7 @@ pipeline {
                   cd src
                   pip install --upgrade pip
                   pip install markupsafe setuptools==30.3.0
-                  python3 setup.py develop
+                  python3 setup.py sdist bdist_wheel upload
                   py.test
                   chown -R jenkins:jenkins ~/*
                 '''
