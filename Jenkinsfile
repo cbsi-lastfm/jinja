@@ -47,12 +47,10 @@ pipeline {
                   export HOME=$WORKSPACE
                   export PATH=$HOME/.local/bin:$PATH
                   cd src
-                  #Needed for installing flake8
                   pip install --upgrade pip
-                  pip install flake8 flake8-print setuptools==30.3.0
+                  pip install setuptools==30.3.0
                   python3 setup.py develop
                   py.test
-                  flake8 | tee flake8.log
                   chown -R jenkins:jenkins ~/*
                 '''
                 script {
@@ -65,13 +63,6 @@ pipeline {
                 always{
                     cobertura coberturaReportFile: 'src/coverage.xml'
                     junit "src/junit.xml"
-                    recordIssues(
-                        tools: [pep8(pattern:'src/flake8.log')],
-                        healthy: 10,
-                        unhealthy: 20,
-                        unstableTotalAll: 150,
-                        sourceDirectory: 'src/'
-                    )
                     cleanWs deleteDirs: true
                 }
             }
