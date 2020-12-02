@@ -50,7 +50,6 @@ pipeline {
                   pip install --upgrade pip
                   pip install markupsafe setuptools==30.3.0
                   python3 setup.py develop
-                  py.test
                   chown -R jenkins:jenkins ~/*
                 '''
                 script {
