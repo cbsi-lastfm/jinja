@@ -48,8 +48,15 @@ pipeline {
                   py.test
                   chown -R jenkins:jenkins ~/*
                 '''
-                script {
-                    utilities.uploadPython('dist/Jinja2-2.11.dev0-py2.py3-none-any.whl')
+                stash includes: '*.whl', name: 'wheel_artifacts'
+            }
+
+            stage("Upload artifacts to nexus"){
+                steps{
+                    unstash 'wheel_artifacts'
+                    script {
+                        utilities.uploadPython wheel: '*.whl'
+                    }
                 }
             }
 
