@@ -53,9 +53,6 @@ pipeline {
                   py.test
                   chown -R jenkins:jenkins ~/*
                 '''
-                script {
-                    versionNum = sh(returnStdout:true, script:'cd src; python3 -c \'import setup; print(setup.version)\'').trim()
-                }
             }
 
 
