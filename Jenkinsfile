@@ -26,7 +26,7 @@ pipeline {
             }
         }
 
-        stage("Run unit tests") {
+        stage("Build Project") {
 
             agent {
                 docker {
@@ -47,8 +47,8 @@ pipeline {
                   python3 setup.py sdist bdist_wheel
                   chown -R jenkins:jenkins .
                 '''
-                stash includes: 'Jinja2*.egg', name: 'egg_artifacts'
-                stash includes: 'Jinja2*.whl', name: 'wheel_artifacts'
+                stash includes: 'dist/Jinja2*.egg', name: 'egg_artifacts'
+                stash includes: 'dist/Jinja2*.whl', name: 'wheel_artifacts'
             }
         }
 
