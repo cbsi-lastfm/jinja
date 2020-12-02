@@ -47,6 +47,7 @@ pipeline {
                   python3 setup.py sdist bdist_wheel
                   chown -R jenkins:jenkins ~/*
                 '''
+                stash includes: '*.egg', name: 'egg_artifacts'
                 stash includes: '*.whl', name: 'wheel_artifacts'
             }
 
@@ -60,9 +61,10 @@ pipeline {
 
         stage("Upload artifacts to nexus"){
             steps{
+                unstash 'egg_artifacts'
                 unstash 'wheel_artifacts'
                 script {
-                    utilities.uploadPython wheel: '*.whl'
+                    utilities.uploadPython egg: '*.egg', wheel: '*.whl'
                 }
             }
         }
