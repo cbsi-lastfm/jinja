@@ -1,3 +1,4 @@
+@Library("shared-jenkins")_
 pipeline {
 
     agent any
@@ -6,15 +7,9 @@ pipeline {
         //Pipeline options
         ansiColor('xterm')
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: "20", artifactNumToKeepStr: "20"))
-        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: "25", artifactNumToKeepStr: "25"))
         disableConcurrentBuilds()
     }
-
-    environment {
-        IMAGE_NAME = 'gcr.io/i-lastfm-tools/jinja2'
-    }
-
     stages {
 
         stage('Clean Workspace') {
@@ -53,6 +48,9 @@ pipeline {
                   py.test
                   chown -R jenkins:jenkins ~/*
                 '''
+                script {
+                    utilities.uploadPython('dist/Jinja2-2.11.dev0-py2.py3-none-any.whl')
+                }
             }
 
 
@@ -60,26 +58,6 @@ pipeline {
                 always{
                     cleanWs deleteDirs: true
                 }
-            }
-        }
-
-        stage('Build docker image'){
-            steps{
-                unstash 'sources'
-                echo "Building docker image $IMAGE_NAME for ${GIT_COMMIT} with v${versionNum}"
-                sh '''
-                cd src
-                  if [[ "$BRANCH_NAME" == "master" ]]
-                  then
-                      docker build --pull -t $IMAGE_NAME:master-head .
-                      docker push $IMAGE_NAME:master-head
-                      docker tag $IMAGE_NAME:master-head $IMAGE_NAME:v${versionNum} || true
-                      docker push $IMAGE_NAME:v${versionNum}
-                  else
-                      docker build --pull -t $IMAGE_NAME:latest .
-                      docker push $IMAGE_NAME:latest
-                  fi
-                '''
             }
         }
     }
