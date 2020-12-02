@@ -35,7 +35,7 @@ pipeline {
 
             agent {
                 docker {
-                    image 'python:3.7.3'
+                    image 'python:3.5'
                     args '-u root:root -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group'
                 }
             }
@@ -48,7 +48,7 @@ pipeline {
                   export PATH=$HOME/.local/bin:$PATH
                   cd src
                   pip install --upgrade pip
-                  pip install setuptools==30.3.0
+                  pip install markupsafe setuptools==30.3.0
                   python3 setup.py develop
                   py.test
                   chown -R jenkins:jenkins ~/*
