@@ -47,6 +47,8 @@ pipeline {
                   python3 setup.py sdist bdist_wheel
                   chown -R jenkins:jenkins .
                 '''
+                sh '''pwd; ls;
+                '''
                 stash includes: 'dist/Jinja2*.whl', name: 'wheel_artifacts'
             }
         }
