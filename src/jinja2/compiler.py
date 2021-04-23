@@ -1362,7 +1362,7 @@ class CodeGenerator(NodeVisitor):
             self.write("(escape if context.eval_ctx.autoescape else to_string)(")
         elif frame.eval_ctx.autoescape:
             self.write("escape(")
-            else:
+        else:
             self.write("to_string(")
 
         if finalize.src is not None:
