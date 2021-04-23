@@ -622,7 +622,7 @@ class Macro(object):
             autoescape = self._default_autoescape
 
         # try to consume the positional arguments
-        arguments = list(args[:self._argument_count])
+        arguments = list(args[: self._argument_count])
         off = len(arguments)
 
         # For information why this is necessary refer to the handling
@@ -667,7 +667,7 @@ class Macro(object):
                 % (self.name, next(iter(kwargs)))
             )
         if self.catch_varargs:
-            arguments.append(args[self._argument_count:])
+            arguments.append(args[self._argument_count :])
         elif len(args) > self._argument_count:
             raise TypeError(
                 "macro %r takes not more than %d argument(s)"
