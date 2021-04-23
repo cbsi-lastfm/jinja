@@ -40,7 +40,7 @@ class TestImports(object):
         t = test_env.from_string(
             '{% from "module" import test without context %}{{ test() }}'
         )
-        assert t.render(foo=42) == '"[42|23]"
+        assert t.render(foo=42) == "[42|23]"
         t = test_env.from_string(
             '{% from "module" import test with context %}{{ test() }}'
         )
@@ -145,7 +145,7 @@ class TestIncludes(object):
         env = Environment(
             loader=DictLoader(
                 dict(
-            main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
+                    main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
                     item="{{ item }}",
                 )
             )

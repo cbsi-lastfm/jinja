@@ -728,19 +728,19 @@ class Undefined(object):
         if self._undefined_hint:
             return self._undefined_hint
 
-            if self._undefined_obj is missing:
+        if self._undefined_obj is missing:
             return "%r is undefined" % self._undefined_name
 
         if not isinstance(self._undefined_name, string_types):
             return "%s has no element %r" % (
-                    object_type_repr(self._undefined_obj),
+                object_type_repr(self._undefined_obj),
                 self._undefined_name,
-                )
+            )
 
         return "%r has no attribute %r" % (
-                    object_type_repr(self._undefined_obj),
+            object_type_repr(self._undefined_obj),
             self._undefined_name,
-                )
+        )
 
     @internalcode
     def _fail_with_undefined_error(self, *args, **kwargs):

@@ -236,7 +236,7 @@ class TestAsyncIncludes(object):
         env = Environment(
             loader=DictLoader(
                 dict(
-            main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
+                    main="{% for item in [1, 2, 3] %}{% include 'item' %}{% endfor %}",
                     item="{{ item }}",
                 )
             )
@@ -363,8 +363,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-            dict(a=1, b=[dict(a=1), dict(a=2)]),
-            dict(a=2, b=[dict(a=1), dict(a=2)]),
+                    dict(a=1, b=[dict(a=1), dict(a=2)]),
+                    dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -382,8 +382,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-            dict(a=1, b=[dict(a=1), dict(a=2)]),
-            dict(a=2, b=[dict(a=1), dict(a=2)]),
+                    dict(a=1, b=[dict(a=1), dict(a=2)]),
+                    dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -398,8 +398,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-            dict(a=1, b=[dict(a=1), dict(a=2)]),
-            dict(a=2, b=[dict(a=1), dict(a=2)]),
+                    dict(a=1, b=[dict(a=1), dict(a=2)]),
+                    dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )
@@ -414,8 +414,8 @@ class TestAsyncForLoop(object):
         assert (
             tmpl.render(
                 seq=[
-            dict(a=1, b=[dict(a=1), dict(a=2)]),
-            dict(a=2, b=[dict(a=1), dict(a=2)]),
+                    dict(a=1, b=[dict(a=1), dict(a=2)]),
+                    dict(a=2, b=[dict(a=1), dict(a=2)]),
                     dict(a=3, b=[dict(a="a")]),
                 ]
             )

@@ -1418,39 +1418,39 @@ class CodeGenerator(NodeVisitor):
             else:
                 body.append([const])
 
-            if frame.buffer is not None:
-                if len(body) == 1:
+        if frame.buffer is not None:
+            if len(body) == 1:
                 self.writeline("%s.append(" % frame.buffer)
-                else:
+            else:
                 self.writeline("%s.extend((" % frame.buffer)
 
-                self.indent()
+            self.indent()
 
-            for item in body:
-                if isinstance(item, list):
+        for item in body:
+            if isinstance(item, list):
                 # A group of constant data to join and output.
                 val = self._output_const_repr(item)
 
-                    if frame.buffer is None:
+                if frame.buffer is None:
                     self.writeline("yield " + val)
-                    else:
-                    self.writeline(val + ",")
                 else:
-                    if frame.buffer is None:
+                    self.writeline(val + ",")
+            else:
+                if frame.buffer is None:
                     self.writeline("yield ", item)
-                    else:
-                        self.newline(item)
+                else:
+                    self.newline(item)
 
                 # A node to be evaluated at runtime.
                 self._output_child_pre(item, frame, finalize)
-                    self.visit(item, frame)
+                self.visit(item, frame)
                 self._output_child_post(item, frame, finalize)
 
-                    if frame.buffer is not None:
+                if frame.buffer is not None:
                     self.write(",")
 
-            if frame.buffer is not None:
-                self.outdent()
+        if frame.buffer is not None:
+            self.outdent()
             self.writeline(")" if len(body) == 1 else "))")
 
         if frame.require_output_check:

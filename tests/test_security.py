@@ -128,8 +128,7 @@ class TestSandbox(object):
         assert escape(t.module) == escaped_out
         assert t.module.say_hello("<blink>foo</blink>") == escaped_out
         assert (
-            escape(t.module.say_hello(new_context(env, 'name', {}), "<blink>foo</blink>")) == escaped_out))
-            == escaped_out
+            escape(t.module.say_hello(new_context(env, 'name', {}), "<blink>foo</blink>")) == escaped_out
         )
         assert escape(t.module.say_hello("<blink>foo</blink>")) == escaped_out
 
