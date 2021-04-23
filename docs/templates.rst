@@ -1,7 +1,8 @@
+.. py:currentmodule:: jinja2
+.. highlight:: html+jinja
+
 Template Designer Documentation
 ===============================
-
-.. highlight:: html+jinja
 
 This document describes the syntax and semantics of the template engine and
 will be most useful as reference to those creating Jinja templates.  As the
@@ -54,7 +55,25 @@ configured as follows:
 * ``{% ... %}`` for :ref:`Statements <list-of-control-structures>`
 * ``{{ ... }}`` for :ref:`Expressions` to print to the template output
 * ``{# ... #}`` for :ref:`Comments` not included in the template output
-* ``#  ... ##`` for :ref:`Line Statements <line-statements>`
+
+:ref:`Line Statements and Comments <line-statements>` are also possible,
+though they don't have default prefix characters. To use them, set
+``line_statement_prefix`` and ``line_comment_prefix`` when creating the
+:class:`~jinja2.Environment`.
+
+
+Template File Extension
+~~~~~~~~~~~~~~~~~~~~~~~
+
+As stated above, any file can be loaded as a template, regardless of
+file extension. Adding a ``.jinja`` extension, like ``user.html.jinja``
+may make it easier for some IDEs or editor plugins, but is not required.
+Autoescaping, introduced later, can be applied based on file extension,
+so you'll need to take the extra suffix into account in that case.
+
+Another good heuristic for identifying templates is that they are in a
+``templates`` folder, regardless of extension. This is a common layout
+for projects.
 
 
 .. _variables:
@@ -91,7 +110,7 @@ printed or iterated over, and to fail for every other operation.
 
 .. admonition:: Implementation
 
-    For the sake of convenience, ``foo.bar`` in Jinja2 does the following
+    For the sake of convenience, ``foo.bar`` in Jinja does the following
     things on the Python layer:
 
     -   check for an attribute called `bar` on `foo`
@@ -216,6 +235,15 @@ plus sign (``+``) at the start of a block::
             {%+ if something %}yay{% endif %}
     </div>
 
+Similarly, you can manually disable the ``trim_blocks`` behavior by
+putting a plus sign (``+``) at the end of a block::
+
+    <div>
+        {% if something +%}
+            yay
+        {% endif %}
+    </div>
+
 You can also strip whitespace in templates by hand.  If you add a minus
 sign (``-``) to the start or end of a block (e.g. a :ref:`for-loop` tag), a
 comment, or a variable expression, the whitespaces before or after
@@ -231,7 +259,7 @@ a list of numbers from ``1`` to ``9``, the output would be ``123456789``.
 If :ref:`line-statements` are enabled, they strip leading whitespace
 automatically up to the beginning of the line.
 
-By default, Jinja2 also removes trailing newlines.  To keep single
+By default, Jinja also removes trailing newlines.  To keep single
 trailing newlines, configure Jinja to `keep_trailing_newline`.
 
 .. admonition:: Note
@@ -370,6 +398,10 @@ In this example, the ``{% block %}`` tags define four blocks that child template
 can fill in. All the `block` tag does is tell the template engine that a
 child template may override those placeholders in the template.
 
+``block`` tags can be inside other blocks such as ``if``, but they will
+always be executed regardless of if the ``if`` block is actually
+rendered.
+
 Child Template
 ~~~~~~~~~~~~~~
 
@@ -395,7 +427,9 @@ this template "extends" another template.  When the template system evaluates
 this template, it first locates the parent.  The extends tag should be the
 first tag in the template.  Everything before it is printed out normally and
 may cause confusion.  For details about this behavior and how to take
-advantage of it, see :ref:`null-master-fallback`.
+advantage of it, see :ref:`null-master-fallback`. Also a block will always be
+filled in regardless of whether the surrounding condition is evaluated to be true
+or false.
 
 The filename of the template depends on the template loader.  For example, the
 :class:`FileSystemLoader` allows you to access other templates by giving the
@@ -425,7 +459,7 @@ If you want to print a block multiple times, you can, however, use the special
 Super Blocks
 ~~~~~~~~~~~~
 
-It's possible to render the contents of the parent block by calling `super`.
+It's possible to render the contents of the parent block by calling ``super()``.
 This gives back the results of the parent block::
 
     {% block sidebar %}
@@ -435,10 +469,45 @@ This gives back the results of the parent block::
     {% endblock %}
 
 
+Nesting extends
+~~~~~~~~~~~~~~~
+
+In the case of multiple levels of ``{% extends %}``,
+``super`` references may be chained (as in ``super.super()``)
+to skip levels in the inheritance tree.
+
+For example::
+
+    # parent.tmpl
+    body: {% block body %}Hi from parent.{% endblock %}
+
+    # child.tmpl
+    {% extends "parent.tmpl" %}
+    {% block body %}Hi from child. {{ super() }}{% endblock %}
+
+    # grandchild1.tmpl
+    {% extends "child.tmpl" %}
+    {% block body %}Hi from grandchild1.{% endblock %}
+
+    # grandchild2.tmpl
+    {% extends "child.tmpl" %}
+    {% block body %}Hi from grandchild2. {{ super.super() }} {% endblock %}
+
+
+Rendering ``child.tmpl`` will give
+``body: Hi from child. Hi from parent.``
+
+Rendering ``grandchild1.tmpl`` will give
+``body: Hi from grandchild1.``
+
+Rendering ``grandchild2.tmpl`` will give
+``body: Hi from grandchild2. Hi from parent.``
+
+
 Named Block End-Tags
 ~~~~~~~~~~~~~~~~~~~~
 
-Jinja2 allows you to put the name of the block after the end tag for better
+Jinja allows you to put the name of the block after the end tag for better
 readability::
 
     {% block sidebar %}
@@ -474,6 +543,45 @@ modifier to a block declaration::
     {% endfor %}
 
 When overriding a block, the `scoped` modifier does not have to be provided.
+
+
+Required Blocks
+~~~~~~~~~~~~~~~
+
+Blocks can be marked as ``required``. They must be overridden at some
+point, but not necessarily by the direct child template. Required blocks
+may only contain space and comments, and they cannot be rendered
+directly.
+
+.. code-block:: jinja
+    :caption: ``page.txt``
+
+    {% block body required %}{% endblock %}
+
+.. code-block:: jinja
+    :caption: ``issue.txt``
+
+    {% extends "page.txt" %}
+
+.. code-block:: jinja
+    :caption: ``bug_report.txt``
+
+    {% extends "issue.txt" %}
+    {% block body %}Provide steps to demonstrate the bug.{% endblock %}
+
+Rendering ``page.txt`` or ``issue.txt`` will raise
+``TemplateRuntimeError`` because they don't override the ``body`` block.
+Rendering ``bug_report.txt`` will succeed because it does override the
+block.
+
+When combined with ``scoped``, the ``required`` modifier must be placed
+*after* the scoped modifier. Here are some valid examples:
+
+.. code-block:: jinja
+
+    {% block body scoped %}{% endblock %}
+    {% block body required %}{% endblock %}
+    {% block body scoped required %}{% endblock %}
 
 
 Template Objects
@@ -530,23 +638,25 @@ When automatic escaping is enabled, everything is escaped by default except
 for values explicitly marked as safe.  Variables and expressions
 can be marked as safe either in:
 
-a. the context dictionary by the application with `MarkupSafe.Markup`, or
-b. the template, with the `|safe` filter
+a.  The context dictionary by the application with
+    :class:`markupsafe.Markup`
+b.  The template, with the ``|safe`` filter.
 
-The main problem with this approach is that Python itself doesn't have the
-concept of tainted values; so whether a value is safe or unsafe can get lost.
+If a string that you marked safe is passed through other Python code
+that doesn't understand that mark, it may get lost. Be aware of when
+your data is marked safe and how it is processed before arriving at the
+template.
 
-If a value is not marked safe, auto-escaping will take place; which means that
-you could end up with double-escaped contents.  Double-escaping is easy to
-avoid, however: just rely on the tools Jinja2 provides and *don't use builtin
-Python constructs such as str.format or the string modulo operator (%)*.
+If a value has been escaped but is not marked safe, auto-escaping will
+still take place and result in double-escaped characters. If you know
+you have data that is already safe but not marked, be sure to wrap it in
+``Markup`` or use the ``|safe`` filter.
 
-Jinja2 functions (macros, `super`, `self.BLOCKNAME`) always return template
+Jinja functions (macros, `super`, `self.BLOCKNAME`) always return template
 data that is marked as safe.
 
-String literals in templates with automatic escaping are considered unsafe
-because native Python strings (``str``, ``unicode``, ``basestring``) are not
-`MarkupSafe.Markup` strings with an ``__html__`` attribute.
+String literals in templates with automatic escaping are considered
+unsafe because native Python strings are not safe.
 
 .. _list-of-control-structures:
 
@@ -577,15 +687,23 @@ As variables in templates retain their object properties, it is possible to
 iterate over containers like `dict`::
 
     <dl>
-    {% for key, value in my_dict.iteritems() %}
+    {% for key, value in my_dict.items() %}
         <dt>{{ key|e }}</dt>
         <dd>{{ value|e }}</dd>
     {% endfor %}
     </dl>
 
-Note, however, that **Python dicts are not ordered**; so you might want to
-either pass a sorted ``list`` of ``tuple`` s -- or a
-``collections.OrderedDict`` -- to the template, or use the `dictsort` filter.
+Python dicts may not be in the order you want to display them in. If
+order matters, use the ``|dictsort`` filter.
+
+.. code-block:: jinja
+
+    <dl>
+    {% for key, value in my_dict | dictsort %}
+        <dt>{{ key|e }}</dt>
+        <dd>{{ value|e }}</dd>
+    {% endfor %}
+    </dl>
 
 Inside of a for-loop block, you can access some special variables:
 
@@ -689,7 +807,7 @@ writing `{% set outer_loop = loop %}` after the loop that we want to
 use recursively. Then, we can call it using `{{ outer_loop(...) }}`
 
 Please note that assignments in loops will be cleared at the end of the
-iteration and cannot outlive the loop scope.  Older versions of Jinja2 had
+iteration and cannot outlive the loop scope.  Older versions of Jinja had
 a bug where in some circumstances it appeared that assignments would work.
 This is not supported.  See :ref:`assignments` for more information about
 how to deal with this.
@@ -855,9 +973,9 @@ Here's an example of how a call block can be used with arguments::
 
     {% call(user) dump_users(list_of_user) %}
         <dl>
-            <dl>Realname</dl>
+            <dt>Realname</dt>
             <dd>{{ user.realname|e }}</dd>
-            <dl>Description</dl>
+            <dt>Description</dt>
             <dd>{{ user.description }}</dd>
         </dl>
     {% endcall %}
@@ -866,7 +984,7 @@ Here's an example of how a call block can be used with arguments::
 Filters
 ~~~~~~~
 
-Filter sections allow you to apply regular Jinja2 filters on a block of
+Filter sections allow you to apply regular Jinja filters on a block of
 template data.  Just wrap the code in the special `filter` section::
 
     {% filter upper %}
@@ -925,7 +1043,7 @@ Assignments use the `set` tag and can have multiple targets::
         {% endfor %}
         Found item having something: {{ ns.found }}
 
-    Note hat the ``obj.attr`` notation in the `set` tag is only allowed for
+    Note that the ``obj.attr`` notation in the `set` tag is only allowed for
     namespace objects; attempting to assign an attribute on any other object
     will raise an exception.
 
@@ -1031,7 +1149,7 @@ Example::
 Import
 ~~~~~~
 
-Jinja2 supports putting often used code into macros.  These macros can go into
+Jinja supports putting often used code into macros.  These macros can go into
 different templates and get imported from there.  This works similarly to the
 import statements in Python.  It's important to know that imports are cached
 and imported templates don't have access to the current template variables,
@@ -1134,19 +1252,24 @@ Literals
 The simplest form of expressions are literals.  Literals are representations
 for Python objects such as strings and numbers.  The following literals exist:
 
-"Hello World":
+``"Hello World"``
     Everything between two double or single quotes is a string.  They are
     useful whenever you need a string in the template (e.g. as
     arguments to function calls and filters, or just to extend or include a
     template).
 
-42 / 42.23:
-    Integers and floating point numbers are created by just writing the
-    number down.  If a dot is present, the number is a float, otherwise an
-    integer.  Keep in mind that, in Python, ``42`` and ``42.0``
-    are different (``int`` and ``float``, respectively).
+``42`` / ``123_456``
+    Integers are whole numbers without a decimal part. The '_' character
+    can be used to separate groups for legibility.
 
-['list', 'of', 'objects']:
+``42.23`` / ``42.1e2`` / ``123_456.789``
+    Floating point numbers can be written using a '.' as a decimal mark.
+    They can also be written in scientific notation with an upper or
+    lower case 'e' to indicate the exponent part. The '_' character can
+    be used to separate groups for legibility, but cannot be used in the
+    exponent part.
+
+``['list', 'of', 'objects']``
     Everything between two brackets is a list.  Lists are useful for storing
     sequential data to be iterated over.  For example, you can easily
     create a list of links using lists and tuples for (and with) a for loop::
@@ -1158,20 +1281,20 @@ for Python objects such as strings and numbers.  The following literals exist:
         {% endfor %}
         </ul>
 
-('tuple', 'of', 'values'):
+``('tuple', 'of', 'values')``
     Tuples are like lists that cannot be modified ("immutable").  If a tuple
     only has one item, it must be followed by a comma (``('1-tuple',)``).
     Tuples are usually used to represent items of two or more elements.
     See the list example above for more details.
 
-{'dict': 'of', 'key': 'and', 'value': 'pairs'}:
+``{'dict': 'of', 'key': 'and', 'value': 'pairs'}``
     A dict in Python is a structure that combines keys and values.  Keys must
     be unique and always have exactly one value.  Dicts are rarely used in
     templates; they are useful in some rare cases such as the :func:`xmlattr`
     filter.
 
-true / false:
-    true is always true and false is always false.
+``true`` / ``false``
+    ``true`` is always true and ``false`` is always false.
 
 .. admonition:: Note
 
@@ -1189,74 +1312,73 @@ Math
 Jinja allows you to calculate with values.  This is rarely useful in templates
 but exists for completeness' sake.  The following operators are supported:
 
-\+
+``+``
     Adds two objects together. Usually the objects are numbers, but if both are
     strings or lists, you can concatenate them this way.  This, however, is not
     the preferred way to concatenate strings!  For string concatenation, have
     a look-see at the ``~`` operator.  ``{{ 1 + 1 }}`` is ``2``.
 
-\-
+``-``
     Subtract the second number from the first one.  ``{{ 3 - 2 }}`` is ``1``.
 
-/
+``/``
     Divide two numbers.  The return value will be a floating point number.
     ``{{ 1 / 2 }}`` is ``{{ 0.5 }}``.
-    (Just like ``from __future__ import division``.)
 
-//
+``//``
     Divide two numbers and return the truncated integer result.
     ``{{ 20 // 7 }}`` is ``2``.
 
-%
+``%``
     Calculate the remainder of an integer division.  ``{{ 11 % 7 }}`` is ``4``.
 
-\*
+``*``
     Multiply the left operand with the right one.  ``{{ 2 * 2 }}`` would
     return ``4``.  This can also be used to repeat a string multiple times.
     ``{{ '=' * 80 }}`` would print a bar of 80 equal signs.
 
-\**
+``**``
     Raise the left operand to the power of the right operand.  ``{{ 2**3 }}``
     would return ``8``.
 
 Comparisons
 ~~~~~~~~~~~
 
-==
+``==``
     Compares two objects for equality.
 
-!=
+``!=``
     Compares two objects for inequality.
 
->
-    `true` if the left hand side is greater than the right hand side.
+``>``
+    ``true`` if the left hand side is greater than the right hand side.
 
->=
-    `true` if the left hand side is greater or equal to the right hand side.
+``>=``
+    ``true`` if the left hand side is greater or equal to the right hand side.
 
-<
-    `true` if the left hand side is lower than the right hand side.
+``<``
+    ``true`` if the left hand side is lower than the right hand side.
 
-<=
-    `true` if the left hand side is lower or equal to the right hand side.
+``<=``
+    ``true`` if the left hand side is lower or equal to the right hand side.
 
 Logic
 ~~~~~
 
-For `if` statements, `for` filtering, and `if` expressions, it can be useful to
+For ``if`` statements, ``for`` filtering, and ``if`` expressions, it can be useful to
 combine multiple expressions:
 
-and
+``and``
     Return true if the left and the right operand are true.
 
-or
+``or``
     Return true if the left or the right operand are true.
 
-not
+``not``
     negate a statement (see below).
 
-(expr)
-    group an expression.
+``(expr)``
+    Parentheses group an expression.
 
 .. admonition:: Note
 
@@ -1272,30 +1394,30 @@ Other Operators
 The following operators are very useful but don't fit into any of the other
 two categories:
 
-in
+``in``
     Perform a sequence / mapping containment test.  Returns true if the left
     operand is contained in the right.  ``{{ 1 in [1, 2, 3] }}`` would, for
     example, return true.
 
-is
+``is``
     Performs a :ref:`test <tests>`.
 
-\|
+``|`` (pipe, vertical bar)
     Applies a :ref:`filter <filters>`.
 
-~
+``~`` (tilde)
     Converts all operands into strings and concatenates them.
 
     ``{{ "Hello " ~ name ~ "!" }}`` would return (assuming `name` is set
     to ``'John'``) ``Hello John!``.
 
-()
+``()``
     Call a callable: ``{{ post.render() }}``.  Inside of the parentheses you
     can use positional arguments and keyword arguments like in Python:
 
     ``{{ post.render(user, full=true) }}``.
 
-. / []
+``.`` / ``[]``
     Get an attribute of an object.  (See :ref:`variables`)
 
 
@@ -1314,11 +1436,48 @@ The general syntax is ``<do something> if <something is true> else <do
 something else>``.
 
 The `else` part is optional.  If not provided, the else block implicitly
-evaluates into an undefined object:
+evaluates into an :class:`Undefined` object (regardless of what ``undefined``
+in the environment is set to):
+
+.. code-block:: jinja
+
+    {{ "[{}]".format(page.title) if page.title }}
+
+
+.. _python-methods:
+
+Python Methods
+~~~~~~~~~~~~~~
+
+You can also use any of the methods defined on a variable's type.
+The value returned from the method invocation is used as the value of the expression.
+Here is an example that uses methods defined on strings (where ``page.title`` is a string):
 
 .. code-block:: text
 
-    {{ ('[%s]' % page.title) if page.title }}
+    {{ page.title.capitalize() }}
+
+This works for methods on user-defined types. For example, if variable
+``f`` of type ``Foo`` has a method ``bar`` defined on it, you can do the
+following:
+
+.. code-block:: text
+
+    {{ f.bar(value) }}
+
+Operator methods also work as expected. For example, ``%`` implements
+printf-style for strings:
+
+.. code-block:: text
+
+    {{ "Hello, %s!" % name }}
+
+Although you should prefer the ``.format`` method for that case (which
+is a bit contrived in the context of rendering a template):
+
+.. code-block:: text
+
+    {{ "Hello, {}!".format(name) }}
 
 
 .. _builtin-filters:
@@ -1326,24 +1485,9 @@ evaluates into an undefined object:
 List of Builtin Filters
 -----------------------
 
-===================  ===================  ==================  ======================  ====================
-Built-in Filters Index
-==========================================================================================================
-:func:`abs`          :func:`attr`         :func:`batch`       :func:`capitalize`      :func:`center`
-:func:`default`      :func:`dictsort`     :func:`escape`      :func:`filesizeformat`  :func:`first`
-:func:`float`        :func:`forceescape`  :func:`format`      :func:`groupby`         :func:`indent`
-:func:`int`          :func:`join`         :func:`last`        :func:`length`          :func:`list`
-:func:`lower`        :func:`map`          :func:`max`         :func:`min`             :func:`pprint`
-:func:`random`       :func:`reject`       :func:`rejectattr`  :func:`replace`         :func:`reverse`
-:func:`round`        :func:`safe`         :func:`select`      :func:`selectattr`      :func:`slice`
-:func:`sort`         :func:`string`       :func:`striptags`   :func:`sum`             :func:`title`
-:func:`tojson`       :func:`trim`         :func:`truncate`    :func:`unique`          :func:`upper`
-:func:`urlencode`    :func:`urlize`       :func:`wordcount`   :func:`wordwrap`        :func:`xmlattr`
-===================  ===================  ==================  ======================  ====================
+.. py:currentmodule:: jinja-filters
 
-
-
-.. jinjafilters::
+.. jinja:filters:: jinja2.defaults.DEFAULT_FILTERS
 
 
 .. _builtin-tests:
@@ -1351,17 +1495,10 @@ Built-in Filters Index
 List of Builtin Tests
 ---------------------
 
-===================  ==================  ===================  ================  ================
-Built-in Test Index
-================================================================================================
-:func:`callable`     :func:`defined`     :func:`divisibleby`  :func:`eq`        :func:`escaped`
-:func:`even`         :func:`ge`          :func:`gt`           :func:`in`        :func:`iterable`
-:func:`le`           :func:`lower`       :func:`lt`           :func:`mapping`   :func:`ne`
-:func:`none`         :func:`number`      :func:`odd`          :func:`sameas`    :func:`sequence`
-:func:`string`       :func:`undefined`   ..                   ..                ..
-===================  ==================  ===================  ================  ================
+.. py:currentmodule:: jinja-tests
 
-.. jinjatests::
+.. jinja:tests:: jinja2.defaults.DEFAULT_TESTS
+
 
 .. _builtin-globals:
 
@@ -1369,6 +1506,8 @@ List of Global Functions
 ------------------------
 
 The following functions are available in the global scope by default:
+
+.. py:currentmodule:: jinja-globals
 
 .. function:: range([start,] stop[, step])
 
@@ -1407,41 +1546,44 @@ The following functions are available in the global scope by default:
 
 .. class:: cycler(\*items)
 
-    The cycler allows you to cycle among values similar to how `loop.cycle`
-    works.  Unlike `loop.cycle`, you can use this cycler outside of
-    loops or over multiple loops.
+    Cycle through values by yielding them one at a time, then restarting
+    once the end is reached.
 
-    This can be very useful if you want to show a list of folders and
-    files with the folders on top but both in the same list with alternating
-    row colors.
+    Similar to ``loop.cycle``, but can be used outside loops or across
+    multiple loops. For example, render a list of folders and files in a
+    list, alternating giving them "odd" and "even" classes.
 
-    The following example shows how `cycler` can be used::
+    .. code-block:: html+jinja
 
-        {% set row_class = cycler('odd', 'even') %}
+        {% set row_class = cycler("odd", "even") %}
         <ul class="browser">
         {% for folder in folders %}
-          <li class="folder {{ row_class.next() }}">{{ folder|e }}</li>
+          <li class="folder {{ row_class.next() }}">{{ folder }}
         {% endfor %}
-        {% for filename in files %}
-          <li class="file {{ row_class.next() }}">{{ filename|e }}</li>
+        {% for file in files %}
+          <li class="file {{ row_class.next() }}">{{ file }}
         {% endfor %}
         </ul>
 
-    A cycler has the following attributes and methods:
+    :param items: Each positional argument will be yielded in the order
+        given for each cycle.
 
-    .. method:: reset()
+    .. versionadded:: 2.1
 
-        Resets the cycle to the first item.
+    .. method:: current
+        :property:
+
+        Return the current item. Equivalent to the item that will be
+        returned next time :meth:`next` is called.
 
     .. method:: next()
 
-        Goes one item ahead and returns the then-current item.
+        Return the current item, then advance :attr:`current` to the
+        next item.
 
-    .. attribute:: current
+    .. method:: reset()
 
-        Returns the current item.
-
-    .. versionadded:: 2.1
+        Resets the current item to the first item.
 
 .. class:: joiner(sep=', ')
 
@@ -1490,39 +1632,51 @@ The following functions are available in the global scope by default:
 Extensions
 ----------
 
-The following sections cover the built-in Jinja2 extensions that may be
+.. py:currentmodule:: jinja2
+
+The following sections cover the built-in Jinja extensions that may be
 enabled by an application.  An application could also provide further
 extensions not covered by this documentation; in which case there should
 be a separate document explaining said :ref:`extensions
 <jinja-extensions>`.
+
 
 .. _i18n-in-templates:
 
 i18n
 ~~~~
 
-If the i18n extension is enabled, it's possible to mark parts in the template
-as translatable.  To mark a section as translatable, you can use `trans`::
+If the :ref:`i18n-extension` is enabled, it's possible to mark text in
+the template as translatable. To mark a section as translatable, use a
+``trans`` block:
 
-    <p>{% trans %}Hello {{ user }}!{% endtrans %}</p>
+.. code-block:: jinja
 
-To translate a template expression --- say, using template filters, or by just
-accessing an attribute of an object --- you need to bind the expression to a
-name for use within the translation block::
+    {% trans %}Hello, {{ user }}!{% endtrans %}
 
-    <p>{% trans user=user.username %}Hello {{ user }}!{% endtrans %}</p>
+Inside the block, no statements are allowed, only text and simple
+variable tags.
 
-If you need to bind more than one expression inside a `trans` tag, separate
-the pieces with a comma (``,``)::
+Variable tags can only be a name, not attribute access, filters, or
+other expressions. To use an expression, bind it to a name in the
+``trans`` tag for use in the block.
+
+.. code-block:: jinja
+
+    {% trans user=user.username %}Hello, {{ user }}!{% endtrans %}
+
+To bind more than one expression, separate each with a comma (``,``).
+
+.. code-block:: jinja
 
     {% trans book_title=book.title, author=author.name %}
     This is {{ book_title }} by {{ author }}
     {% endtrans %}
 
-Inside trans tags no statements are allowed, only variable tags are.
+To pluralize, specify both the singular and plural forms separated by
+the ``pluralize`` tag.
 
-To pluralize, specify both the singular and plural forms with the `pluralize`
-tag, which appears between `trans` and `endtrans`::
+.. code-block:: jinja
 
     {% trans count=list|length %}
     There is {{ count }} {{ name }} object.
@@ -1530,60 +1684,70 @@ tag, which appears between `trans` and `endtrans`::
     There are {{ count }} {{ name }} objects.
     {% endtrans %}
 
-By default, the first variable in a block is used to determine the correct
-singular or plural form.  If that doesn't work out, you can specify the name
-which should be used for pluralizing by adding it as parameter to `pluralize`::
+By default, the first variable in a block is used to determine whether
+to use singular or plural form. If that isn't correct, specify the
+variable used for pluralizing as a parameter to ``pluralize``.
+
+.. code-block:: jinja
 
     {% trans ..., user_count=users|length %}...
     {% pluralize user_count %}...{% endtrans %}
 
-When translating longer blocks of text, whitespace and linebreaks result in
-rather ugly and error-prone translation strings.  To avoid this, a trans block
-can be marked as trimmed which will replace all linebreaks and the whitespace
-surrounding them with a single space and remove leading/trailing whitespace::
+When translating blocks of text, whitespace and linebreaks result in
+hard to read and error-prone translation strings. To avoid this, a trans
+block can be marked as trimmed, which will replace all linebreaks and
+the whitespace surrounding them with a single space and remove leading
+and trailing whitespace.
+
+.. code-block:: jinja
 
     {% trans trimmed book_title=book.title %}
         This is {{ book_title }}.
         You should read it!
     {% endtrans %}
 
-If trimming is enabled globally, the `notrimmed` modifier can be used to
-disable it for a `trans` block.
+This results in ``This is %(book_title)s. You should read it!`` in the
+translation file.
+
+If trimming is enabled globally, the ``notrimmed`` modifier can be used
+to disable it for a block.
 
 .. versionadded:: 2.10
-   The `trimmed` and `notrimmed` modifiers have been added.
+   The ``trimmed`` and ``notrimmed`` modifiers have been added.
 
-It's also possible to translate strings in expressions.  For that purpose,
-three functions exist:
+It's possible to translate strings in expressions with these functions:
 
--   `gettext`: translate a single string
--   `ngettext`: translate a pluralizable string
--   `_`: alias for `gettext`
+-   ``gettext``: translate a single string
+-   ``ngettext``: translate a pluralizable string
+-   ``_``: alias for ``gettext``
 
-For example, you can easily print a translated string like this::
+You can print a translated string like this:
 
-    {{ _('Hello World!') }}
+.. code-block:: jinja
 
-To use placeholders, use the `format` filter::
+    {{ _("Hello, World!") }}
 
-    {{ _('Hello %(user)s!')|format(user=user.username) }}
+To use placeholders, use the ``format`` filter.
 
-For multiple placeholders, always use keyword arguments to `format`,
-as other languages may not use the words in the same order.
+.. code-block:: jinja
 
-.. versionchanged:: 2.5
+    {{ _("Hello, %(user)s!")|format(user=user.username) }}
 
-If newstyle gettext calls are activated (:ref:`newstyle-gettext`), using
-placeholders is a lot easier:
+Always use keyword arguments to ``format``, as other languages may not
+use the words in the same order.
 
-.. sourcecode:: html+jinja
+If :ref:`newstyle-gettext` calls are activated, using placeholders is
+easier. Formatting is part of the ``gettext`` call instead of using the
+``format`` filter.
+
+.. sourcecode:: jinja
 
     {{ gettext('Hello World!') }}
     {{ gettext('Hello %(name)s!', name='World') }}
     {{ ngettext('%(num)d apple', '%(num)d apples', apples|count) }}
 
-Note that the `ngettext` function's format string automatically receives
-the count as a `num` parameter in addition to the regular parameters.
+The ``ngettext`` function's format string automatically receives the
+count as a ``num`` parameter in addition to the given parameters.
 
 
 Expression Statement
@@ -1621,6 +1785,29 @@ Note that ``loop.index`` starts with 1, and ``loop.index0`` starts with 0
 (See: :ref:`for-loop`).
 
 
+Debug Statement
+~~~~~~~~~~~~~~~
+
+If the :ref:`debug-extension` is enabled, a ``{% debug %}`` tag will be
+available to dump the current context as well as the available filters
+and tests. This is useful to see what's available to use in the template
+without setting up a debugger.
+
+.. code-block:: html+jinja
+
+    <pre>{% debug %}</pre>
+
+.. code-block:: text
+
+    {'context': {'cycler': <class 'jinja2.utils.Cycler'>,
+                 ...,
+                 'namespace': <class 'jinja2.utils.Namespace'>},
+     'filters': ['abs', 'attr', 'batch', 'capitalize', 'center', 'count', 'd',
+                 ..., 'urlencode', 'urlize', 'wordcount', 'wordwrap', 'xmlattr'],
+     'tests': ['!=', '<', '<=', '==', '>', '>=', 'callable', 'defined',
+               ..., 'odd', 'sameas', 'sequence', 'string', 'undefined', 'upper']}
+
+
 With Statement
 ~~~~~~~~~~~~~~
 
@@ -1655,7 +1842,7 @@ behavior of referencing one variable to another had some unintended
 consequences.  In particular one variable could refer to another defined
 in the same with block's opening statement.  This caused issues with the
 cleaned up scoping behavior and has since been improved.  In particular
-in newer Jinja2 versions the following code always refers to the variable
+in newer Jinja versions the following code always refers to the variable
 `a` from outside the `with` block::
 
     {% with a={}, b=a.attribute %}...{% endwith %}

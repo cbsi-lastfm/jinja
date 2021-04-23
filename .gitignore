@@ -10,9 +10,12 @@ dist/
 .tox/
 .cache/
 .idea/
+env/
 venv/
 venv-*/
 .coverage
 .coverage.*
 htmlcov
 .pytest_cache/
+/.vscode/
+.mypy_cache

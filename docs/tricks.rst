@@ -3,7 +3,7 @@ Tips and Tricks
 
 .. highlight:: html+jinja
 
-This part of the documentation shows some tips and tricks for Jinja2
+This part of the documentation shows some tips and tricks for Jinja
 templates.
 
 
@@ -12,7 +12,7 @@ templates.
 Null-Master Fallback
 --------------------
 
-Jinja2 supports dynamic inheritance and does not distinguish between parent
+Jinja supports dynamic inheritance and does not distinguish between parent
 and child template as long as no `extends` tag is visited.  While this leads
 to the surprising behavior that everything before the first `extends` tag
 including whitespace is printed out instead of being ignored, it can be used
@@ -46,7 +46,7 @@ list you can use the `cycle` method on the `loop` object::
     {% endfor %}
     </ul>
 
-`cycle` can take an unlimited amount of strings.  Each time this
+`cycle` can take an unlimited number of strings.  Each time this
 tag is encountered the next item from the list is rendered.
 
 
