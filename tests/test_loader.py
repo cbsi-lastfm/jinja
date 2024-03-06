@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import weakref
+from pathlib import Path
 
 import pytest
 
@@ -32,8 +33,7 @@ class TestLoaders:
         pytest.raises(TemplateNotFound, env.get_template, "missing.html")
 
     def test_filesystem_loader_overlapping_names(self, filesystem_loader):
-        res = os.path.dirname(filesystem_loader.searchpath[0])
-        t2_dir = os.path.join(res, "templates2")
+        t2_dir = Path(filesystem_loader.searchpath[0]) / ".." / "templates2"
         # Make "foo" show up before "foo/test.html".
         filesystem_loader.searchpath.insert(0, t2_dir)
         e = Environment(loader=filesystem_loader)
@@ -118,9 +118,7 @@ class TestLoaders:
 
 
 class TestFileSystemLoader:
-    searchpath = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "res", "templates"
-    )
+    searchpath = (Path(__file__) / ".." / "res" / "templates").resolve()
 
     @staticmethod
     def _test_common(env):
@@ -131,24 +129,20 @@ class TestFileSystemLoader:
         pytest.raises(TemplateNotFound, env.get_template, "missing.html")
 
     def test_searchpath_as_str(self):
-        filesystem_loader = loaders.FileSystemLoader(self.searchpath)
+        filesystem_loader = loaders.FileSystemLoader(str(self.searchpath))
 
         env = Environment(loader=filesystem_loader)
         self._test_common(env)
 
     def test_searchpath_as_pathlib(self):
-        import pathlib
-
-        searchpath = pathlib.Path(self.searchpath)
-        filesystem_loader = loaders.FileSystemLoader(searchpath)
+        filesystem_loader = loaders.FileSystemLoader(self.searchpath)
         env = Environment(loader=filesystem_loader)
         self._test_common(env)
 
     def test_searchpath_as_list_including_pathlib(self):
-        import pathlib
-
-        searchpath = pathlib.Path(self.searchpath)
-        filesystem_loader = loaders.FileSystemLoader(["/tmp/templates", searchpath])
+        filesystem_loader = loaders.FileSystemLoader(
+            ["/tmp/templates", self.searchpath]
+        )
         env = Environment(loader=filesystem_loader)
         self._test_common(env)
 
@@ -160,7 +154,7 @@ class TestFileSystemLoader:
         tmpl2 = env.get_template("test.html")
         assert tmpl1 is tmpl2
 
-        os.utime(os.path.join(self.searchpath, "test.html"), (time.time(), time.time()))
+        os.utime(self.searchpath / "test.html", (time.time(), time.time()))
         tmpl3 = env.get_template("test.html")
         assert tmpl1 is not tmpl3
 
@@ -177,9 +171,19 @@ class TestFileSystemLoader:
         t = e.get_template("mojibake.txt")
         assert t.render() == expect
 
+    def test_filename_normpath(self):
+        """Nested template names should only contain ``os.sep`` in the
+        loaded filename.
+        """
+        loader = loaders.FileSystemLoader(self.searchpath)
+        e = Environment(loader=loader)
+        t = e.get_template("foo/test.html")
+        assert t.filename == str(self.searchpath / "foo" / "test.html")
+
 
 class TestModuleLoader:
     archive = None
+    mod_env = None
 
     def compile_down(self, prefix_loader, zip="deflated"):
         log = []
@@ -193,13 +197,14 @@ class TestModuleLoader:
         self.mod_env = Environment(loader=loaders.ModuleLoader(self.archive))
         return "".join(log)
 
-    def teardown(self):
-        if hasattr(self, "mod_env"):
+    def teardown_method(self):
+        if self.archive is not None:
             if os.path.isfile(self.archive):
                 os.remove(self.archive)
             else:
                 shutil.rmtree(self.archive)
             self.archive = None
+            self.mod_env = None
 
     def test_log(self, prefix_loader):
         log = self.compile_down(prefix_loader)
@@ -282,10 +287,7 @@ class TestModuleLoader:
         self.compile_down(prefix_loader)
 
         mod_path = self.mod_env.loader.module.__path__[0]
-
-        import pathlib
-
-        mod_loader = loaders.ModuleLoader(pathlib.Path(mod_path))
+        mod_loader = loaders.ModuleLoader(Path(mod_path))
         self.mod_env = Environment(loader=mod_loader)
 
         self._test_common()
@@ -294,10 +296,7 @@ class TestModuleLoader:
         self.compile_down(prefix_loader)
 
         mod_path = self.mod_env.loader.module.__path__[0]
-
-        import pathlib
-
-        mod_loader = loaders.ModuleLoader([pathlib.Path(mod_path), "/tmp/templates"])
+        mod_loader = loaders.ModuleLoader([Path(mod_path), "/tmp/templates"])
         self.mod_env = Environment(loader=mod_loader)
 
         self._test_common()
@@ -305,7 +304,7 @@ class TestModuleLoader:
 
 @pytest.fixture()
 def package_dir_loader(monkeypatch):
-    monkeypatch.syspath_prepend(os.path.dirname(__file__))
+    monkeypatch.syspath_prepend(Path(__file__).parent)
     return PackageLoader("res")
 
 
@@ -326,10 +325,31 @@ def test_package_dir_list(package_dir_loader):
 
 
 @pytest.fixture()
+def package_file_loader(monkeypatch):
+    monkeypatch.syspath_prepend(Path(__file__).parent / "res")
+    return PackageLoader("__init__")
+
+
+@pytest.mark.parametrize(
+    ("template", "expect"), [("foo/test.html", "FOO"), ("test.html", "BAR")]
+)
+def test_package_file_source(package_file_loader, template, expect):
+    source, name, up_to_date = package_file_loader.get_source(None, template)
+    assert source.rstrip() == expect
+    assert name.endswith(os.path.join(*split_template_path(template)))
+    assert up_to_date()
+
+
+def test_package_file_list(package_file_loader):
+    templates = package_file_loader.list_templates()
+    assert "foo/test.html" in templates
+    assert "test.html" in templates
+
+
+@pytest.fixture()
 def package_zip_loader(monkeypatch):
-    monkeypatch.syspath_prepend(
-        os.path.join(os.path.dirname(__file__), "res", "package.zip")
-    )
+    package_zip = (Path(__file__) / ".." / "res" / "package.zip").resolve()
+    monkeypatch.syspath_prepend(package_zip)
     return PackageLoader("t_pack")
 
 
@@ -350,6 +370,17 @@ def test_package_zip_source(package_zip_loader, template, expect):
 )
 def test_package_zip_list(package_zip_loader):
     assert package_zip_loader.list_templates() == ["foo/test.html", "test.html"]
+
+
+@pytest.mark.parametrize("package_path", ["", ".", "./"])
+def test_package_zip_omit_curdir(package_zip_loader, package_path):
+    """PackageLoader should not add or include "." or "./" in the root
+    path, it is invalid in zip paths.
+    """
+    loader = PackageLoader("t_pack", package_path)
+    assert loader.package_path == ""
+    source, _, _ = loader.get_source(None, "templates/foo/test.html")
+    assert source.rstrip() == "FOO"
 
 
 def test_pep_451_import_hook():

@@ -1,14 +1,150 @@
 .. currentmodule:: jinja2
 
-Version 3.0.0
+Version 3.2.0
 -------------
 
 Unreleased
+
+-   Use modern packaging metadata with ``pyproject.toml`` instead of ``setup.cfg``.
+    :pr:`1793`
+-   Use ``flit_core`` instead of ``setuptools`` as build backend.
+
+
+Version 3.1.3
+-------------
+
+Released 2024-01-10
+
+-   Fix compiler error when checking if required blocks in parent templates are
+    empty. :pr:`1858`
+-   ``xmlattr`` filter does not allow keys with spaces. GHSA-h5c8-rqwp-cp95
+-   Make error messages stemming from invalid nesting of ``{% trans %}`` blocks
+    more helpful. :pr:`1918`
+
+
+Version 3.1.2
+-------------
+
+Released 2022-04-28
+
+-   Add parameters to ``Environment.overlay`` to match ``__init__``.
+    :issue:`1645`
+-   Handle race condition in ``FileSystemBytecodeCache``. :issue:`1654`
+
+
+Version 3.1.1
+-------------
+
+Released 2022-03-25
+
+-   The template filename on Windows uses the primary path separator.
+    :issue:`1637`
+
+
+Version 3.1.0
+-------------
+
+Released 2022-03-24
+
+-   Drop support for Python 3.6. :pr:`1534`
+-   Remove previously deprecated code. :pr:`1544`
+
+    -   ``WithExtension`` and ``AutoEscapeExtension`` are built-in now.
+    -   ``contextfilter`` and ``contextfunction`` are replaced by
+        ``pass_context``. ``evalcontextfilter`` and
+        ``evalcontextfunction`` are replaced by ``pass_eval_context``.
+        ``environmentfilter`` and ``environmentfunction`` are replaced
+        by ``pass_environment``.
+    -   ``Markup`` and ``escape`` should be imported from MarkupSafe.
+    -   Compiled templates from very old Jinja versions may need to be
+        recompiled.
+    -   Legacy resolve mode for ``Context`` subclasses is no longer
+        supported. Override ``resolve_or_missing`` instead of
+        ``resolve``.
+    -   ``unicode_urlencode`` is renamed to ``url_quote``.
+
+-   Add support for native types in macros. :issue:`1510`
+-   The ``{% trans %}`` tag can use ``pgettext`` and ``npgettext`` by
+    passing a context string as the first token in the tag, like
+    ``{% trans "title" %}``. :issue:`1430`
+-   Update valid identifier characters from Python 3.6 to 3.7.
+    :pr:`1571`
+-   Filters and tests decorated with ``@async_variant`` are pickleable.
+    :pr:`1612`
+-   Add ``items`` filter. :issue:`1561`
+-   Subscriptions (``[0]``, etc.) can be used after filters, tests, and
+    calls when the environment is in async mode. :issue:`1573`
+-   The ``groupby`` filter is case-insensitive by default, matching
+    other comparison filters. Added the ``case_sensitive`` parameter to
+    control this. :issue:`1463`
+-   Windows drive-relative path segments in template names will not
+    result in ``FileSystemLoader`` and ``PackageLoader`` loading from
+    drive-relative paths. :pr:`1621`
+
+
+Version 3.0.3
+-------------
+
+Released 2021-11-09
+
+-   Fix traceback rewriting internals for Python 3.10 and 3.11.
+    :issue:`1535`
+-   Fix how the native environment treats leading and trailing spaces
+    when parsing values on Python 3.10. :pr:`1537`
+-   Improve async performance by avoiding checks for common types.
+    :issue:`1514`
+-   Revert change to ``hash(Node)`` behavior. Nodes are hashed by id
+    again :issue:`1521`
+-   ``PackageLoader`` works when the package is a single module file.
+    :issue:`1512`
+
+
+Version 3.0.2
+-------------
+
+Released 2021-10-04
+
+-   Fix a loop scoping bug that caused assignments in nested loops
+    to still be referenced outside of it. :issue:`1427`
+-   Make ``compile_templates`` deterministic for filter and import
+    names. :issue:`1452, 1453`
+-   Revert an unintended change that caused ``Undefined`` to act like
+    ``StrictUndefined`` for the ``in`` operator. :issue:`1448`
+-   Imported macros have access to the current template globals in async
+    environments. :issue:`1494`
+-   ``PackageLoader`` will not include a current directory (.) path
+    segment. This allows loading templates from the root of a zip
+    import. :issue:`1467`
+
+
+Version 3.0.1
+-------------
+
+Released 2021-05-18
+
+-   Update MarkupSafe dependency to >= 2.0. :pr:`1418`
+-   Mark top-level names as exported so type checking understands
+    imports in user projects. :issue:`1426`
+-   Fix some types that weren't available in Python 3.6.0. :issue:`1433`
+-   The deprecation warning for unneeded ``autoescape`` and ``with_``
+    extensions shows more relevant context. :issue:`1429`
+-   Fixed calling deprecated ``jinja2.Markup`` without an argument.
+    Use ``markupsafe.Markup`` instead. :issue:`1438`
+-   Calling sync ``render`` for an async template uses ``asyncio.run``
+    on Python >= 3.7. This fixes a deprecation that Python 3.10
+    introduces. :issue:`1443`
+
+
+Version 3.0.0
+-------------
+
+Released 2021-05-11
 
 -   Drop support for Python 2.7 and 3.5.
 -   Bump MarkupSafe dependency to >=1.1.
 -   Bump Babel optional dependency to >=2.1.
 -   Remove code that was marked deprecated.
+-   Add type hinting. :pr:`1412`
 -   Use :pep:`451` API to load templates with
     :class:`~loaders.PackageLoader`. :issue:`1168`
 -   Fix a bug that caused imported macros to not have access to the
@@ -371,7 +507,7 @@ Released 2017-01-08
     possible. For more information and a discussion see :issue:`641`
 -   Resolved an issue where ``block scoped`` would not take advantage of
     the new scoping rules. In some more exotic cases a variable
-    overriden in a local scope would not make it into a block.
+    overridden in a local scope would not make it into a block.
 -   Change the code generation of the ``with`` statement to be in line
     with the new scoping rules. This resolves some unlikely bugs in edge
     cases. This also introduces a new internal ``With`` node that can be

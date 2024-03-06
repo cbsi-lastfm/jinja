@@ -427,7 +427,7 @@ this template "extends" another template.  When the template system evaluates
 this template, it first locates the parent.  The extends tag should be the
 first tag in the template.  Everything before it is printed out normally and
 may cause confusion.  For details about this behavior and how to take
-advantage of it, see :ref:`null-master-fallback`. Also a block will always be
+advantage of it, see :ref:`null-default-fallback`. Also a block will always be
 filled in regardless of whether the surrounding condition is evaluated to be true
 or false.
 
@@ -587,17 +587,27 @@ When combined with ``scoped``, the ``required`` modifier must be placed
 Template Objects
 ~~~~~~~~~~~~~~~~
 
-.. versionchanged:: 2.4
+``extends``, ``include``, and ``import`` can take a template object
+instead of the name of a template to load. This could be useful in some
+advanced situations, since you can use Python code to load a template
+first and pass it in to ``render``.
 
-If a template object was passed in the template context, you can
-extend from that object as well.  Assuming the calling code passes
-a layout template as `layout_template` to the environment, this
-code works::
+.. code-block:: python
 
-    {% extends layout_template %}
+    if debug_mode:
+        layout = env.get_template("debug_layout.html")
+    else:
+        layout = env.get_template("layout.html")
 
-Previously, the `layout_template` variable had to be a string with
-the layout template's filename for this to work.
+    user_detail = env.get_template("user/detail.html")
+    return user_detail.render(layout=layout)
+
+.. code-block:: jinja
+
+    {% extends layout %}
+
+Note how ``extends`` is passed the variable with the template object
+that was passed to ``render``, instead of a string.
 
 
 HTML Escaping
@@ -914,9 +924,6 @@ are available on a macro object:
 `arguments`
     A tuple of the names of arguments the macro accepts.
 
-`defaults`
-    A tuple of default values.
-
 `catch_kwargs`
     This is `true` if the macro accepts extra keyword arguments (i.e.: accesses
     the special `kwargs` variable).
@@ -931,6 +938,23 @@ are available on a macro object:
 
 If a macro name starts with an underscore, it's not exported and can't
 be imported.
+
+Due to how scopes work in Jinja, a macro in a child template does not
+override a macro in a parent template. The following will output
+"LAYOUT", not "CHILD".
+
+.. code-block:: jinja
+    :caption: ``layout.txt``
+
+    {% macro foo() %}LAYOUT{% endmacro %}
+    {% block body %}{% endblock %}
+
+.. code-block:: jinja
+    :caption: ``child.txt``
+
+    {% extends 'layout.txt' %}
+    {% macro foo() %}CHILD{% endmacro %}
+    {% block body %}{{ foo() }}{% endblock %}
 
 
 .. _call:
@@ -991,6 +1015,9 @@ template data.  Just wrap the code in the special `filter` section::
         This text becomes uppercase
     {% endfilter %}
 
+Filters that accept arguments can be called like this::
+
+    {% filter center(100) %}Center this{% endfilter %}
 
 .. _assignments:
 
@@ -1107,42 +1134,45 @@ at the same time.  They are documented in detail in the
 Include
 ~~~~~~~
 
-The `include` tag is useful to include a template and return the
-rendered contents of that file into the current namespace::
+The ``include`` tag renders another template and outputs the result into
+the current template.
+
+.. code-block:: jinja
 
     {% include 'header.html' %}
-        Body
+    Body goes here.
     {% include 'footer.html' %}
 
-Included templates have access to the variables of the active context by
-default.  For more details about context behavior of imports and includes,
-see :ref:`import-visibility`.
+The included template has access to context of the current template by
+default. Use ``without context`` to use a separate context instead.
+``with context`` is also valid, but is the default behavior. See
+:ref:`import-visibility`.
 
-From Jinja 2.2 onwards, you can mark an include with ``ignore missing``; in
-which case Jinja will ignore the statement if the template to be included
-does not exist.  When combined with ``with`` or ``without context``, it must
-be placed *before* the context visibility statement.  Here are some valid
-examples::
+The included template can ``extend`` another template and override
+blocks in that template. However, the current template cannot override
+any blocks that the included template outputs.
 
+Use ``ignore missing`` to ignore the statement if the template does not
+exist. It must be placed *before* a context visibility statement.
+
+.. code-block:: jinja
+
+    {% include "sidebar.html" without context %}
     {% include "sidebar.html" ignore missing %}
     {% include "sidebar.html" ignore missing with context %}
     {% include "sidebar.html" ignore missing without context %}
 
-.. versionadded:: 2.2
+If a list of templates is given, each will be tried in order until one
+is not missing. This can be used with ``ignore missing`` to ignore if
+none of the templates exist.
 
-You can also provide a list of templates that are checked for existence
-before inclusion.  The first template that exists will be included.  If
-`ignore missing` is given, it will fall back to rendering nothing if
-none of the templates exist, otherwise it will raise an exception.
-
-Example::
+.. code-block:: jinja
 
     {% include ['page_detailed.html', 'page.html'] %}
     {% include ['special_sidebar.html', 'sidebar.html'] ignore missing %}
 
-.. versionchanged:: 2.4
-   If a template object was passed to the template context, you can
-   include that object using `include`.
+A variable, with either a template name or template object, can also be
+passed to the statement.
 
 .. _import:
 
@@ -1338,8 +1368,19 @@ but exists for completeness' sake.  The following operators are supported:
     ``{{ '=' * 80 }}`` would print a bar of 80 equal signs.
 
 ``**``
-    Raise the left operand to the power of the right operand.  ``{{ 2**3 }}``
-    would return ``8``.
+    Raise the left operand to the power of the right operand.
+    ``{{ 2**3 }}`` would return ``8``.
+
+    Unlike Python, chained pow is evaluated left to right.
+    ``{{ 3**3**3 }}`` is evaluated as ``(3**3)**3`` in Jinja, but would
+    be evaluated as ``3**(3**3)`` in Python. Use parentheses in Jinja
+    to be explicit about what order you want. It is usually preferable
+    to do extended math in Python and pass the results to ``render``
+    rather than doing it in the template.
+
+    This behavior may be changed in the future to match Python, if it's
+    possible to introduce an upgrade path.
+
 
 Comparisons
 ~~~~~~~~~~~
@@ -1430,7 +1471,7 @@ It is also possible to use inline `if` expressions.  These are useful in some
 situations.  For example, you can use this to extend from one template if a
 variable is defined, otherwise from the default layout template::
 
-    {% extends layout_template if layout_template is defined else 'master.html' %}
+    {% extends layout_template if layout_template is defined else 'default.html' %}
 
 The general syntax is ``<do something> if <something is true> else <do
 something else>``.
@@ -1570,8 +1611,7 @@ The following functions are available in the global scope by default:
 
     .. versionadded:: 2.1
 
-    .. method:: current
-        :property:
+    .. property:: current
 
         Return the current item. Equivalent to the item that will be
         returned next time :meth:`next` is called.
@@ -1715,11 +1755,35 @@ to disable it for a block.
 .. versionadded:: 2.10
    The ``trimmed`` and ``notrimmed`` modifiers have been added.
 
+If the translation depends on the context that the message appears in,
+the ``pgettext`` and ``npgettext`` functions take a ``context`` string
+as the first argument, which is used to select the appropriate
+translation. To specify a context with the ``{% trans %}`` tag, provide
+a string as the first token after ``trans``.
+
+.. code-block:: jinja
+
+    {% trans "fruit" %}apple{% endtrans %}
+    {% trans "fruit" trimmed count -%}
+        1 apple
+    {%- pluralize -%}
+        {{ count }} apples
+    {%- endtrans %}
+
+.. versionadded:: 3.1
+    A context can be passed to the ``trans`` tag to use ``pgettext`` and
+    ``npgettext``.
+
 It's possible to translate strings in expressions with these functions:
 
--   ``gettext``: translate a single string
--   ``ngettext``: translate a pluralizable string
--   ``_``: alias for ``gettext``
+-   ``_(message)``: Alias for ``gettext``.
+-   ``gettext(message)``: Translate a message.
+-   ``ngettext(singluar, plural, n)``: Translate a singular or plural
+    message based on a count variable.
+-   ``pgettext(context, message)``: Like ``gettext()``, but picks the
+    translation based on the context string.
+-   ``npgettext(context, singular, plural, n)``: Like ``npgettext()``,
+    but picks the translation based on the context string.
 
 You can print a translated string like this:
 

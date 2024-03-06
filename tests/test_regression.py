@@ -591,23 +591,6 @@ class TestBug:
         env = MyEnvironment(loader=loader)
         assert env.get_template("test").render(foobar="test") == "test"
 
-    def test_legacy_custom_context(self, env):
-        from jinja2.runtime import Context, missing
-
-        with pytest.deprecated_call():
-
-            class MyContext(Context):
-                def resolve(self, name):
-                    if name == "foo":
-                        return 42
-                    return super().resolve(name)
-
-        x = MyContext(env, parent={"bar": 23}, name="foo", blocks={})
-        assert x._legacy_resolve_mode
-        assert x.resolve_or_missing("foo") == 42
-        assert x.resolve_or_missing("bar") == 23
-        assert x.resolve_or_missing("baz") is missing
-
     def test_recursive_loop_bug(self, env):
         tmpl = env.from_string(
             "{%- for value in values recursive %}1{% else %}0{% endfor -%}"
@@ -745,6 +728,13 @@ End"""
 
         tmpl = env.get_template("base")
         assert tmpl.render() == "42 y"
+
+    def test_nested_loop_scoping(self, env):
+        tmpl = env.from_string(
+            "{% set output %}{% for x in [1,2,3] %}hello{% endfor %}"
+            "{% endset %}{{ output }}"
+        )
+        assert tmpl.render() == "hellohellohello"
 
 
 @pytest.mark.parametrize("unicode_char", ["\N{FORM FEED}", "\x85"])

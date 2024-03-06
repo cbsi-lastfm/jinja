@@ -1,6 +1,6 @@
-import os
 import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -242,13 +242,12 @@ class TestStreaming:
         assert not stream.buffered
 
     def test_dump_stream(self, env):
-        tmp = tempfile.mkdtemp()
+        tmp = Path(tempfile.mkdtemp())
         try:
             tmpl = env.from_string("\u2713")
             stream = tmpl.stream()
-            stream.dump(os.path.join(tmp, "dump.txt"), "utf-8")
-            with open(os.path.join(tmp, "dump.txt"), "rb") as f:
-                assert f.read() == b"\xe2\x9c\x93"
+            stream.dump(str(tmp / "dump.txt"), "utf-8")
+            assert (tmp / "dump.txt").read_bytes() == b"\xe2\x9c\x93"
         finally:
             shutil.rmtree(tmp)
 
@@ -317,7 +316,7 @@ class TestUndefined:
         assert env.from_string("{{ foo.missing }}").render(foo=42) == ""
         assert env.from_string("{{ not missing }}").render() == "True"
         pytest.raises(UndefinedError, env.from_string("{{ missing - 1}}").render)
-        pytest.raises(UndefinedError, env.from_string("{{ 'foo' in missing }}").render)
+        assert env.from_string("{{ 'foo' in missing }}").render() == "False"
         und1 = Undefined(name="x")
         und2 = Undefined(name="y")
         assert und1 == und2
@@ -376,6 +375,7 @@ class TestUndefined:
         pytest.raises(UndefinedError, env.from_string("{{ missing }}").render)
         pytest.raises(UndefinedError, env.from_string("{{ missing.attribute }}").render)
         pytest.raises(UndefinedError, env.from_string("{{ missing|list }}").render)
+        pytest.raises(UndefinedError, env.from_string("{{ 'foo' in missing }}").render)
         assert env.from_string("{{ missing is not defined }}").render() == "True"
         pytest.raises(
             UndefinedError, env.from_string("{{ foo.missing }}").render, foo=42

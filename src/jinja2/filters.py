@@ -4,7 +4,6 @@ import random
 import re
 import typing
 import typing as t
-import warnings
 from collections import abc
 from itertools import chain
 from itertools import groupby
@@ -34,71 +33,21 @@ if t.TYPE_CHECKING:
     from .runtime import Context
     from .sandbox import SandboxedEnvironment  # noqa: F401
 
-    K = t.TypeVar("K")
-    V = t.TypeVar("V")
-
     class HasHTML(te.Protocol):
         def __html__(self) -> str:
             pass
 
 
-def contextfilter(f):
-    """Pass the context as the first argument to the decorated function.
-
-    .. deprecated:: 3.0
-        Will be removed in Jinja 3.1. Use :func:`~jinja2.pass_context`
-        instead.
-    """
-    warnings.warn(
-        "'contextfilter' is renamed to 'pass_context', the old name"
-        " will be removed in Jinja 3.1.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return pass_context(f)
+F = t.TypeVar("F", bound=t.Callable[..., t.Any])
+K = t.TypeVar("K")
+V = t.TypeVar("V")
 
 
-def evalcontextfilter(f):
-    """Pass the eval context as the first argument to the decorated
-    function.
-
-    .. deprecated:: 3.0
-        Will be removed in Jinja 3.1. Use
-        :func:`~jinja2.pass_eval_context` instead.
-
-    .. versionadded:: 2.4
-    """
-    warnings.warn(
-        "'evalcontextfilter' is renamed to 'pass_eval_context', the old"
-        " name will be removed in Jinja 3.1.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return pass_eval_context(f)
-
-
-def environmentfilter(f):
-    """Pass the environment as the first argument to the decorated
-    function.
-
-    .. deprecated:: 3.0
-        Will be removed in Jinja 3.1. Use
-        :func:`~jinja2.pass_environment` instead.
-    """
-    warnings.warn(
-        "'environmentfilter' is renamed to 'pass_environment', the old"
-        " name will be removed in Jinja 3.1.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return pass_environment(f)
-
-
-def ignore_case(value: "V") -> "V":
+def ignore_case(value: V) -> V:
     """For use as a postprocessor for :func:`make_attrgetter`. Converts strings
     to lowercase and returns other types as-is."""
     if isinstance(value, str):
-        return t.cast("V", value.lower())
+        return t.cast(V, value.lower())
 
     return value
 
@@ -269,13 +218,47 @@ def do_lower(s: str) -> str:
     return soft_str(s).lower()
 
 
+def do_items(value: t.Union[t.Mapping[K, V], Undefined]) -> t.Iterator[t.Tuple[K, V]]:
+    """Return an iterator over the ``(key, value)`` items of a mapping.
+
+    ``x|items`` is the same as ``x.items()``, except if ``x`` is
+    undefined an empty iterator is returned.
+
+    This filter is useful if you expect the template to be rendered with
+    an implementation of Jinja in another programming language that does
+    not have a ``.items()`` method on its mapping type.
+
+    .. code-block:: html+jinja
+
+        <dl>
+        {% for key, value in my_dict|items %}
+            <dt>{{ key }}
+            <dd>{{ value }}
+        {% endfor %}
+        </dl>
+
+    .. versionadded:: 3.1
+    """
+    if isinstance(value, Undefined):
+        return
+
+    if not isinstance(value, abc.Mapping):
+        raise TypeError("Can only get item pairs from a mapping.")
+
+    yield from value.items()
+
+
+_space_re = re.compile(r"\s", flags=re.ASCII)
+
+
 @pass_eval_context
 def do_xmlattr(
     eval_ctx: "EvalContext", d: t.Mapping[str, t.Any], autospace: bool = True
 ) -> str:
     """Create an SGML/XML attribute string based on the items in a dict.
-    All values that are neither `none` nor `undefined` are automatically
-    escaped:
+
+    If any key contains a space, this fails with a ``ValueError``. Values that
+    are neither ``none`` nor ``undefined`` are automatically escaped.
 
     .. sourcecode:: html+jinja
 
@@ -294,12 +277,22 @@ def do_xmlattr(
 
     As you can see it automatically prepends a space in front of the item
     if the filter returned something unless the second parameter is false.
+
+    .. versionchanged:: 3.1.3
+        Keys with spaces are not allowed.
     """
-    rv = " ".join(
-        f'{escape(key)}="{escape(value)}"'
-        for key, value in d.items()
-        if value is not None and not isinstance(value, Undefined)
-    )
+    items = []
+
+    for key, value in d.items():
+        if value is None or isinstance(value, Undefined):
+            continue
+
+        if _space_re.search(key) is not None:
+            raise ValueError(f"Spaces are not allowed in attributes: '{key}'")
+
+        items.append(f'{escape(key)}="{escape(value)}"')
+
+    rv = " ".join(items)
 
     if autospace and rv:
         rv = " " + rv
@@ -334,11 +327,11 @@ def do_title(s: str) -> str:
 
 
 def do_dictsort(
-    value: "t.Mapping[K, V]",
+    value: t.Mapping[K, V],
     case_sensitive: bool = False,
     by: 'te.Literal["key", "value"]' = "key",
     reverse: bool = False,
-) -> "t.List[t.Tuple[K, V]]":
+) -> t.List[t.Tuple[K, V]]:
     """Sort a dict and yield (key, value) pairs. Python dicts may not
     be in the order you want to display them in, so sort them first.
 
@@ -363,7 +356,7 @@ def do_dictsort(
     else:
         raise FilterArgumentError('You can only sort by either "key" or "value"')
 
-    def sort_func(item):
+    def sort_func(item: t.Tuple[t.Any, t.Any]) -> t.Any:
         value = item[pos]
 
         if not case_sensitive:
@@ -413,7 +406,7 @@ def do_sort(
 
     .. sourcecode:: jinja
 
-        {% for user users|sort(attribute="age,name") %}
+        {% for user in users|sort(attribute="age,name") %}
             ...
         {% endfor %}
 
@@ -524,10 +517,10 @@ def do_max(
 
 
 def do_default(
-    value: "V",
-    default_value: "V" = "",  # type: ignore
+    value: V,
+    default_value: V = "",  # type: ignore
     boolean: bool = False,
-) -> "V":
+) -> V:
     """If the value is undefined it will return the passed default value,
     otherwise the value of the variable:
 
@@ -559,7 +552,7 @@ def do_default(
 @pass_eval_context
 def sync_do_join(
     eval_ctx: "EvalContext",
-    value: t.Iterable,
+    value: t.Iterable[t.Any],
     d: str = "",
     attribute: t.Optional[t.Union[str, int]] = None,
 ) -> str:
@@ -614,10 +607,10 @@ def sync_do_join(
     return soft_str(d).join(map(soft_str, value))
 
 
-@async_variant(sync_do_join)
+@async_variant(sync_do_join)  # type: ignore
 async def do_join(
     eval_ctx: "EvalContext",
-    value: t.Union[t.AsyncIterable, t.Iterable],
+    value: t.Union[t.AsyncIterable[t.Any], t.Iterable[t.Any]],
     d: str = "",
     attribute: t.Optional[t.Union[str, int]] = None,
 ) -> str:
@@ -640,12 +633,12 @@ def sync_do_first(
         return environment.undefined("No first item, sequence was empty.")
 
 
-@async_variant(sync_do_first)
+@async_variant(sync_do_first)  # type: ignore
 async def do_first(
     environment: "Environment", seq: "t.Union[t.AsyncIterable[V], t.Iterable[V]]"
 ) -> "t.Union[V, Undefined]":
     try:
-        return t.cast("V", await auto_aiter(seq).__anext__())
+        return await auto_aiter(seq).__anext__()
     except StopAsyncIteration:
         return environment.undefined("No first item, sequence was empty.")
 
@@ -716,7 +709,7 @@ def do_filesizeformat(value: t.Union[str, float, int], binary: bool = False) -> 
 
 def do_pprint(value: t.Any) -> str:
     """Pretty print a variable. Useful for debugging."""
-    return t.cast(str, pformat(value))
+    return pformat(value)
 
 
 _uri_scheme_re = re.compile(r"^([\w.+-]{2,}:(/){0,2})$")
@@ -1079,7 +1072,7 @@ def sync_do_slice(
         yield tmp
 
 
-@async_variant(sync_do_slice)
+@async_variant(sync_do_slice)  # type: ignore
 async def do_slice(
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
     slices: int,
@@ -1162,19 +1155,19 @@ def do_round(
         return round(value, precision)
 
     func = getattr(math, method)
-    return t.cast(float, func(value * (10 ** precision)) / (10 ** precision))
+    return t.cast(float, func(value * (10**precision)) / (10**precision))
 
 
 class _GroupTuple(t.NamedTuple):
     grouper: t.Any
-    list: t.List
+    list: t.List[t.Any]
 
     # Use the regular tuple repr to hide this subclass if users print
     # out the value during debugging.
-    def __repr__(self):
+    def __repr__(self) -> str:
         return tuple.__repr__(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return tuple.__str__(self)
 
 
@@ -1184,7 +1177,8 @@ def sync_do_groupby(
     value: "t.Iterable[V]",
     attribute: t.Union[str, int],
     default: t.Optional[t.Any] = None,
-) -> "t.List[t.Tuple[t.Any, t.List[V]]]":
+    case_sensitive: bool = False,
+) -> "t.List[_GroupTuple]":
     """Group a sequence of objects by an attribute using Python's
     :func:`itertools.groupby`. The attribute can use dot notation for
     nested access, like ``"address.city"``. Unlike Python's ``groupby``,
@@ -1224,31 +1218,68 @@ def sync_do_groupby(
           <li>{{ city }}: {{ items|map(attribute="name")|join(", ") }}</li>
         {% endfor %}</ul>
 
+    Like the :func:`~jinja-filters.sort` filter, sorting and grouping is
+    case-insensitive by default. The ``key`` for each group will have
+    the case of the first item in that group of values. For example, if
+    a list of users has cities ``["CA", "NY", "ca"]``, the "CA" group
+    will have two values. This can be disabled by passing
+    ``case_sensitive=True``.
+
+    .. versionchanged:: 3.1
+        Added the ``case_sensitive`` parameter. Sorting and grouping is
+        case-insensitive by default, matching other filters that do
+        comparisons.
+
     .. versionchanged:: 3.0
         Added the ``default`` parameter.
 
     .. versionchanged:: 2.6
         The attribute supports dot notation for nested access.
     """
-    expr = make_attrgetter(environment, attribute, default=default)
-    return [
+    expr = make_attrgetter(
+        environment,
+        attribute,
+        postprocess=ignore_case if not case_sensitive else None,
+        default=default,
+    )
+    out = [
         _GroupTuple(key, list(values))
         for key, values in groupby(sorted(value, key=expr), expr)
     ]
 
+    if not case_sensitive:
+        # Return the real key from the first value instead of the lowercase key.
+        output_expr = make_attrgetter(environment, attribute, default=default)
+        out = [_GroupTuple(output_expr(values[0]), values) for _, values in out]
 
-@async_variant(sync_do_groupby)
+    return out
+
+
+@async_variant(sync_do_groupby)  # type: ignore
 async def do_groupby(
     environment: "Environment",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
     attribute: t.Union[str, int],
     default: t.Optional[t.Any] = None,
-) -> "t.List[t.Tuple[t.Any, t.List[V]]]":
-    expr = make_attrgetter(environment, attribute, default=default)
-    return [
+    case_sensitive: bool = False,
+) -> "t.List[_GroupTuple]":
+    expr = make_attrgetter(
+        environment,
+        attribute,
+        postprocess=ignore_case if not case_sensitive else None,
+        default=default,
+    )
+    out = [
         _GroupTuple(key, await auto_to_list(values))
         for key, values in groupby(sorted(await auto_to_list(value), key=expr), expr)
     ]
+
+    if not case_sensitive:
+        # Return the real key from the first value instead of the lowercase key.
+        output_expr = make_attrgetter(environment, attribute, default=default)
+        out = [_GroupTuple(output_expr(values[0]), values) for _, values in out]
+
+    return out
 
 
 @pass_environment
@@ -1256,8 +1287,8 @@ def sync_do_sum(
     environment: "Environment",
     iterable: "t.Iterable[V]",
     attribute: t.Optional[t.Union[str, int]] = None,
-    start: "V" = 0,  # type: ignore
-) -> "V":
+    start: V = 0,  # type: ignore
+) -> V:
     """Returns the sum of a sequence of numbers plus the value of parameter
     'start' (which defaults to 0).  When the sequence is empty it returns
     start.
@@ -1269,29 +1300,29 @@ def sync_do_sum(
         Total: {{ items|sum(attribute='price') }}
 
     .. versionchanged:: 2.6
-       The `attribute` parameter was added to allow suming up over
-       attributes.  Also the `start` parameter was moved on to the right.
+       The ``attribute`` parameter was added to allow summing up over
+       attributes.  Also the ``start`` parameter was moved on to the right.
     """
     if attribute is not None:
         iterable = map(make_attrgetter(environment, attribute), iterable)
 
-    return sum(iterable, start)
+    return sum(iterable, start)  # type: ignore[no-any-return, call-overload]
 
 
-@async_variant(sync_do_sum)
+@async_variant(sync_do_sum)  # type: ignore
 async def do_sum(
     environment: "Environment",
     iterable: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
     attribute: t.Optional[t.Union[str, int]] = None,
-    start: "V" = 0,  # type: ignore
-) -> "V":
+    start: V = 0,  # type: ignore
+) -> V:
     rv = start
 
     if attribute is not None:
         func = make_attrgetter(environment, attribute)
     else:
 
-        def func(x):
+        def func(x: V) -> V:
             return x
 
     async for item in auto_aiter(iterable):
@@ -1307,7 +1338,7 @@ def sync_do_list(value: "t.Iterable[V]") -> "t.List[V]":
     return list(value)
 
 
-@async_variant(sync_do_list)
+@async_variant(sync_do_list)  # type: ignore
 async def do_list(value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]") -> "t.List[V]":
     return await auto_to_list(value)
 
@@ -1334,7 +1365,7 @@ def do_reverse(value: "t.Iterable[V]") -> "t.Iterable[V]":
     ...
 
 
-def do_reverse(value):
+def do_reverse(value: t.Union[str, t.Iterable[V]]) -> t.Union[str, t.Iterable[V]]:
     """Reverse the object or return an iterator that iterates over it the other
     way round.
     """
@@ -1342,14 +1373,14 @@ def do_reverse(value):
         return value[::-1]
 
     try:
-        return reversed(value)
+        return reversed(value)  # type: ignore
     except TypeError:
         try:
             rv = list(value)
             rv.reverse()
             return rv
-        except TypeError:
-            raise FilterArgumentError("argument must be iterable")
+        except TypeError as e:
+            raise FilterArgumentError("argument must be iterable") from e
 
 
 @pass_environment
@@ -1385,24 +1416,30 @@ def do_attr(
 
 @typing.overload
 def sync_do_map(
-    context: "Context", value: t.Iterable, name: str, *args: t.Any, **kwargs: t.Any
-) -> t.Iterable:
+    context: "Context",
+    value: t.Iterable[t.Any],
+    name: str,
+    *args: t.Any,
+    **kwargs: t.Any,
+) -> t.Iterable[t.Any]:
     ...
 
 
 @typing.overload
 def sync_do_map(
     context: "Context",
-    value: t.Iterable,
+    value: t.Iterable[t.Any],
     *,
     attribute: str = ...,
     default: t.Optional[t.Any] = None,
-) -> t.Iterable:
+) -> t.Iterable[t.Any]:
     ...
 
 
 @pass_context
-def sync_do_map(context, value, *args, **kwargs):
+def sync_do_map(
+    context: "Context", value: t.Iterable[t.Any], *args: t.Any, **kwargs: t.Any
+) -> t.Iterable[t.Any]:
     """Applies a filter on a sequence of objects or looks up an attribute.
     This is useful when dealing with lists of objects but you are really
     only interested in a certain value of it.
@@ -1452,27 +1489,32 @@ def sync_do_map(context, value, *args, **kwargs):
 @typing.overload
 def do_map(
     context: "Context",
-    value: t.Union[t.AsyncIterable, t.Iterable],
+    value: t.Union[t.AsyncIterable[t.Any], t.Iterable[t.Any]],
     name: str,
     *args: t.Any,
     **kwargs: t.Any,
-) -> t.Iterable:
+) -> t.Iterable[t.Any]:
     ...
 
 
 @typing.overload
 def do_map(
     context: "Context",
-    value: t.Union[t.AsyncIterable, t.Iterable],
+    value: t.Union[t.AsyncIterable[t.Any], t.Iterable[t.Any]],
     *,
     attribute: str = ...,
     default: t.Optional[t.Any] = None,
-) -> t.Iterable:
+) -> t.Iterable[t.Any]:
     ...
 
 
-@async_variant(sync_do_map)
-async def do_map(context, value, *args, **kwargs):
+@async_variant(sync_do_map)  # type: ignore
+async def do_map(
+    context: "Context",
+    value: t.Union[t.AsyncIterable[t.Any], t.Iterable[t.Any]],
+    *args: t.Any,
+    **kwargs: t.Any,
+) -> t.AsyncIterable[t.Any]:
     if value:
         func = prepare_map(context, args, kwargs)
 
@@ -1511,7 +1553,7 @@ def sync_do_select(
     return select_or_reject(context, value, args, kwargs, lambda x: x, False)
 
 
-@async_variant(sync_do_select)
+@async_variant(sync_do_select)  # type: ignore
 async def do_select(
     context: "Context",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
@@ -1547,7 +1589,7 @@ def sync_do_reject(
     return select_or_reject(context, value, args, kwargs, lambda x: not x, False)
 
 
-@async_variant(sync_do_reject)
+@async_variant(sync_do_reject)  # type: ignore
 async def do_reject(
     context: "Context",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
@@ -1587,7 +1629,7 @@ def sync_do_selectattr(
     return select_or_reject(context, value, args, kwargs, lambda x: x, True)
 
 
-@async_variant(sync_do_selectattr)
+@async_variant(sync_do_selectattr)  # type: ignore
 async def do_selectattr(
     context: "Context",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
@@ -1625,7 +1667,7 @@ def sync_do_rejectattr(
     return select_or_reject(context, value, args, kwargs, lambda x: not x, True)
 
 
-@async_variant(sync_do_rejectattr)
+@async_variant(sync_do_rejectattr)  # type: ignore
 async def do_rejectattr(
     context: "Context",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
@@ -1665,7 +1707,7 @@ def do_tojson(
 
 
 def prepare_map(
-    context: "Context", args: t.Tuple, kwargs: t.Dict[str, t.Any]
+    context: "Context", args: t.Tuple[t.Any, ...], kwargs: t.Dict[str, t.Any]
 ) -> t.Callable[[t.Any], t.Any]:
     if not args and "attribute" in kwargs:
         attribute = kwargs.pop("attribute")
@@ -1682,9 +1724,9 @@ def prepare_map(
             name = args[0]
             args = args[1:]
         except LookupError:
-            raise FilterArgumentError("map requires a filter argument")
+            raise FilterArgumentError("map requires a filter argument") from None
 
-        def func(item):
+        def func(item: t.Any) -> t.Any:
             return context.environment.call_filter(
                 name, item, args, kwargs, context=context
             )
@@ -1694,7 +1736,7 @@ def prepare_map(
 
 def prepare_select_or_reject(
     context: "Context",
-    args: t.Tuple,
+    args: t.Tuple[t.Any, ...],
     kwargs: t.Dict[str, t.Any],
     modfunc: t.Callable[[t.Any], t.Any],
     lookup_attr: bool,
@@ -1703,25 +1745,25 @@ def prepare_select_or_reject(
         try:
             attr = args[0]
         except LookupError:
-            raise FilterArgumentError("Missing parameter for attribute name")
+            raise FilterArgumentError("Missing parameter for attribute name") from None
 
         transfunc = make_attrgetter(context.environment, attr)
         off = 1
     else:
         off = 0
 
-        def transfunc(x):
+        def transfunc(x: V) -> V:
             return x
 
     try:
         name = args[off]
         args = args[1 + off :]
 
-        def func(item):
+        def func(item: t.Any) -> t.Any:
             return context.environment.call_test(name, item, args, kwargs)
 
     except LookupError:
-        func = bool
+        func = bool  # type: ignore
 
     return lambda item: modfunc(func(transfunc(item)))
 
@@ -1729,7 +1771,7 @@ def prepare_select_or_reject(
 def select_or_reject(
     context: "Context",
     value: "t.Iterable[V]",
-    args: t.Tuple,
+    args: t.Tuple[t.Any, ...],
     kwargs: t.Dict[str, t.Any],
     modfunc: t.Callable[[t.Any], t.Any],
     lookup_attr: bool,
@@ -1745,7 +1787,7 @@ def select_or_reject(
 async def async_select_or_reject(
     context: "Context",
     value: "t.Union[t.AsyncIterable[V], t.Iterable[V]]",
-    args: t.Tuple,
+    args: t.Tuple[t.Any, ...],
     kwargs: t.Dict[str, t.Any],
     modfunc: t.Callable[[t.Any], t.Any],
     lookup_attr: bool,
@@ -1783,6 +1825,7 @@ FILTERS = {
     "length": len,
     "list": do_list,
     "lower": do_lower,
+    "items": do_items,
     "map": do_map,
     "min": do_min,
     "max": do_max,

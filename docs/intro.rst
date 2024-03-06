@@ -30,7 +30,7 @@ Installation
 ------------
 
 We recommend using the latest version of Python. Jinja supports Python
-3.6 and newer. We also recommend using a `virtual environment`_ in order
+3.7 and newer. We also recommend using a `virtual environment`_ in order
 to isolate your project dependencies from other projects and the system.
 
 .. _virtual environment: https://packaging.python.org/tutorials/installing-packages/#creating-virtual-environments
@@ -60,4 +60,4 @@ These distributions will not be installed automatically.
 
 -   `Babel`_ provides translation support in templates.
 
-.. _Babel: http://babel.pocoo.org/
+.. _Babel: https://babel.pocoo.org/

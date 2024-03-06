@@ -32,16 +32,14 @@ html_context = {
         ProjectLink("PyPI Releases", "https://pypi.org/project/Jinja2/"),
         ProjectLink("Source Code", "https://github.com/pallets/jinja/"),
         ProjectLink("Issue Tracker", "https://github.com/pallets/jinja/issues/"),
-        ProjectLink("Website", "https://palletsprojects.com/p/jinja/"),
-        ProjectLink("Twitter", "https://twitter.com/PalletsTeam"),
         ProjectLink("Chat", "https://discord.gg/pallets"),
     ]
 }
 html_sidebars = {
-    "index": ["project.html", "localtoc.html", "searchbox.html"],
-    "**": ["localtoc.html", "relations.html", "searchbox.html"],
+    "index": ["project.html", "localtoc.html", "searchbox.html", "ethicalads.html"],
+    "**": ["localtoc.html", "relations.html", "searchbox.html", "ethicalads.html"],
 }
-singlehtml_sidebars = {"index": ["project.html", "localtoc.html"]}
+singlehtml_sidebars = {"index": ["project.html", "localtoc.html", "ethicalads.html"]}
 html_static_path = ["_static"]
 html_favicon = "_static/jinja-logo-sidebar.png"
 html_logo = "_static/jinja-logo-sidebar.png"

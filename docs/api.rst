@@ -273,7 +273,7 @@ modified identifier syntax.  Filters and tests may contain dots to group
 filters and tests by topic.  For example it's perfectly valid to add a
 function into the filter dict and call it `to.str`.  The regular
 expression for filter and test identifiers is
-``[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*```.
+``[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*``.
 
 
 Undefined Types
@@ -410,16 +410,19 @@ The Context
     .. automethod:: jinja2.runtime.Context.call(callable, \*args, \**kwargs)
 
 
-.. admonition:: Implementation
+The context is immutable, it prevents modifications, and if it is
+modified somehow despite that those changes may not show up. For
+performance, Jinja does not use the context as data storage for, only as
+a primary data source. Variables that the template does not define are
+looked up in the context, but variables the template does define are
+stored locally.
 
-    Context is immutable for the same reason Python's frame locals are
-    immutable inside functions.  Both Jinja and Python are not using the
-    context / frame locals as data storage for variables but only as primary
-    data source.
+Instead of modifying the context directly, a function should return
+a value that can be assigned to a variable within the template itself.
 
-    When a template accesses a variable the template does not define, Jinja
-    looks up the variable in the context, after that the variable is treated
-    as if it was defined in the template.
+.. code-block:: jinja
+
+    {% set comments = get_latest_comments() %}
 
 
 .. _loaders:
@@ -513,12 +516,12 @@ handle async and sync code in an asyncio event loop. This has the
 following implications:
 
 -   Template rendering requires an event loop to be available to the
-    current thread. :func:`asyncio.get_event_loop` must return an event
-    loop.
+    current thread. :func:`asyncio.get_running_loop` must return an
+    event loop.
 -   The compiled code uses ``await`` for functions and attributes, and
     uses ``async for`` loops. In order to support using both async and
     sync functions in this context, a small wrapper is placed around
-    all calls and access, which add overhead compared to purely async
+    all calls and access, which adds overhead compared to purely async
     code.
 -   Sync methods and filters become wrappers around their corresponding
     async implementations where needed. For example, ``render`` invokes
@@ -596,18 +599,6 @@ functions to a Jinja environment.
 .. autofunction:: jinja2.pass_eval_context
 
 .. autofunction:: jinja2.pass_environment
-
-.. autofunction:: jinja2.contextfilter
-
-.. autofunction:: jinja2.evalcontextfilter
-
-.. autofunction:: jinja2.environmentfilter
-
-.. autofunction:: jinja2.contextfunction
-
-.. autofunction:: jinja2.evalcontextfunction
-
-.. autofunction:: jinja2.environmentfunction
 
 .. autofunction:: jinja2.clear_caches
 
@@ -760,8 +751,8 @@ Now it can be used in templates:
     {% endif %}
 
 Some decorators are available to tell Jinja to pass extra information to
-the filter. The object is passed as the first argument, making the value
-being filtered the second argument.
+the test. The object is passed as the first argument, making the value
+being tested the second argument.
 
 -   :func:`pass_environment` passes the :class:`Environment`.
 -   :func:`pass_eval_context` passes the :ref:`eval-context`.
