@@ -42,15 +42,13 @@ pipeline {
                   export HOME=$WORKSPACE
                   export PATH=$HOME/.local/bin:$PATH
                   pip install --upgrade pip
-                  pip install --upgrade build
-                  python -m build
-                  python -m pip install .
-                  python -m pip wheel . -w --build-option sdist bdist_wheel
+                  pip install markupsafe setuptools==30.3.0
+                  python3 setup.py sdist bdist_wheel
                   chown -R jenkins:jenkins .
                 '''
                 sh '''pwd; ls;
                 '''
-                stash includes: 'Jinja2*.whl', name: 'wheel_artifacts'
+                stash includes: 'dist/Jinja2*.whl', name: 'wheel_artifacts'
             }
         }
 
