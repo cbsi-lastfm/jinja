@@ -45,7 +45,7 @@ pipeline {
                   pip install --upgrade build
                   python -m build
                   python -m pip install .
-                  python -m pip wheel .
+                  python -m pip wheel . -w dist
                   chown -R jenkins:jenkins .
                 '''
                 sh '''pwd; ls;
