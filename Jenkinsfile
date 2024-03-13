@@ -44,7 +44,7 @@ pipeline {
                   pip install --upgrade pip
                   pip install --upgrade build
                   python -m build
-                  python -m pip install . -w
+                  python -m pip install .
                   python -m pip wheel .
                   chown -R jenkins:jenkins .
                 '''
