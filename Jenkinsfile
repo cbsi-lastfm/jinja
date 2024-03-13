@@ -42,9 +42,9 @@ pipeline {
                   export HOME=$WORKSPACE
                   export PATH=$HOME/.local/bin:$PATH
                   pip install --upgrade pip
-                  pip install markupsafe setuptools==30.3.0
-                  python3 setup.py sdist bdist_wheel
-                  chown -R jenkins:jenkins .
+                  pip install --upgrade build
+                  python -m pip install .
+                  python -m build --sdist --wheel
                 '''
                 sh '''pwd; ls;
                 '''
