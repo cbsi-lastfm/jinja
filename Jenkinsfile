@@ -50,7 +50,7 @@ pipeline {
                 '''
                 sh '''pwd; ls;
                 '''
-                stash includes: 'dist/Jinja2*.whl', name: 'wheel_artifacts'
+                stash includes: 'Jinja2*.whl', name: 'wheel_artifacts'
             }
         }
 
