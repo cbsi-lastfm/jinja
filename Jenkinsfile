@@ -44,11 +44,11 @@ pipeline {
                   pip install --upgrade pip
                   pip install --upgrade build
                   python -m pip install .
-                  python -m build --sdist --wheel
+                  python -m build
                 '''
-                sh '''pwd; ls;
+                sh '''pwd; ls; ls dist;
                 '''
-                stash includes: 'dist/Jinja2*.whl', name: 'wheel_artifacts'
+                stash includes: 'dist/*.whl', name: 'wheel_artifacts'
             }
         }
 
