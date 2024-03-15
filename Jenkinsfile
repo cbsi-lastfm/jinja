@@ -49,7 +49,7 @@ pipeline {
                 '''
                 sh '''pwd; ls; ls dist;
                 '''
-                stash(name: 'wheel_artifacts', includes: 'dist/*.whl')
+                stash(name: 'wheel_artifacts', includes: '*.whl')
             }
         }
 
