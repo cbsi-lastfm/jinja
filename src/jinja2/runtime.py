@@ -21,7 +21,6 @@ from .utils import internalcode
 from .utils import missing
 from .utils import Namespace  # noqa: F401
 from .utils import object_type_repr
-from .utils import pass_eval_context
 from .utils import pass_context
 
 V = t.TypeVar("V")
