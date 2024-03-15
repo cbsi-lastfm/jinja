@@ -57,7 +57,7 @@ pipeline {
             steps{
                 unstash 'wheel_artifacts'
                 script {
-                    utilities.uploadPython wheel: 'dist/Jinja2*.whl'
+                    utilities.uploadPython wheel: 'Jinja2*.whl'
                 }
             }
         }
