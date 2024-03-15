@@ -22,6 +22,7 @@ from .utils import missing
 from .utils import Namespace  # noqa: F401
 from .utils import object_type_repr
 from .utils import pass_eval_context
+from .utils import pass_context
 
 V = t.TypeVar("V")
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
@@ -688,7 +689,7 @@ class Macro:
         self._default_autoescape = default_autoescape
 
     @internalcode
-    @pass_eval_context
+    @pass_context
     def __call__(self, *args: t.Any, **kwargs: t.Any) -> str:
         # This requires a bit of explanation,  In the past we used to
         # decide largely based on compile-time information if a macro is
@@ -706,10 +707,12 @@ class Macro:
         # argument to callables otherwise anyway.  Worst case here is
         # that if no eval context is passed we fall back to the compile
         # time autoescape flag.
-        if args and isinstance(args[0], EvalContext):
-            autoescape = args[0].autoescape
+        if args and isinstance(args[0], Context):
+            context = args[0]
+            autoescape = context.eval_ctx.autoescape
             args = args[1:]
         else:
+            context = None
             autoescape = self._default_autoescape
 
         # try to consume the positional arguments
@@ -763,6 +766,7 @@ class Macro:
                 f" {len(self.arguments)} argument(s)"
             )
 
+        arguments = [context] + arguments
         return self._invoke(arguments, autoescape)
 
     async def _async_invoke(self, arguments: t.List[t.Any], autoescape: bool) -> str:
