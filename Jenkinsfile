@@ -43,6 +43,7 @@ pipeline {
                   export PATH=$HOME/.local/bin:$PATH
                   pip install --upgrade pip
                   pip install --upgrade build
+                  pip install -r requirements/build.txt
                   python -m pip install .
                   python -m build
                 '''
