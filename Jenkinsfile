@@ -48,7 +48,7 @@ pipeline {
                 '''
                 sh '''pwd; ls; ls dist;
                 '''
-                stash includes: 'dist/*.whl', name: 'wheel_artifacts'
+                stash includes: 'dist/jinja2-3.1.3+lastfm-py3-none-any.whl', name: 'wheel_artifacts'
             }
         }
 
