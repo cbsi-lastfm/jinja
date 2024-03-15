@@ -56,6 +56,7 @@ pipeline {
         stage("Upload artifacts to nexus"){
             steps{
                 unstash 'wheel_artifacts'
+                sh '''pwd; ls;'''
                 script {
                     utilities.uploadPython wheel: 'Jinja2*.whl'
                 }
