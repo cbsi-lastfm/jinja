@@ -58,7 +58,7 @@ pipeline {
                 unstash 'wheel_artifacts'
                 sh '''pwd; ls;'''
                 script {
-                    utilities.uploadPython wheel: '*.whl'
+                    utilities.uploadPython wheel: 'jinja2*.whl'
                 }
             }
         }
