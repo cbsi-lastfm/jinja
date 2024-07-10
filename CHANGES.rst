@@ -5,9 +5,38 @@ Version 3.2.0
 
 Unreleased
 
+-   Drop support for Python 3.7.
 -   Use modern packaging metadata with ``pyproject.toml`` instead of ``setup.cfg``.
     :pr:`1793`
 -   Use ``flit_core`` instead of ``setuptools`` as build backend.
+
+
+Version 3.1.5
+-------------
+
+Unreleased
+
+-   Calling sync ``render`` for an async template uses ``asyncio.run``.
+    :pr:`1952`
+-   Avoid unclosed ``auto_aiter`` warnings. :pr:`1960`
+-   Return an ``aclose``-able ``AsyncGenerator`` from
+    ``Template.generate_async``. :pr:`1960`
+-   Avoid leaving ``root_render_func()`` unclosed in
+    ``Template.generate_async``. :pr:`1960`
+-   Avoid leaving async generators unclosed in blocks, includes and extends.
+    :pr:`1960`
+
+
+Version 3.1.4
+-------------
+
+Released 2024-05-05
+
+-   The ``xmlattr`` filter does not allow keys with ``/`` solidus, ``>``
+    greater-than sign, or ``=`` equals sign, in addition to disallowing spaces.
+    Regardless of any validation done by Jinja, user input should never be used
+    as keys to this filter, or must be separately validated first.
+    :ghsa:`h75v-3vvj-5mfj`
 
 
 Version 3.1.3
@@ -17,7 +46,7 @@ Released 2024-01-10
 
 -   Fix compiler error when checking if required blocks in parent templates are
     empty. :pr:`1858`
--   ``xmlattr`` filter does not allow keys with spaces. GHSA-h5c8-rqwp-cp95
+-   ``xmlattr`` filter does not allow keys with spaces. :ghsa:`h5c8-rqwp-cp95`
 -   Make error messages stemming from invalid nesting of ``{% trans %}`` blocks
     more helpful. :pr:`1918`
 
@@ -130,9 +159,8 @@ Released 2021-05-18
     extensions shows more relevant context. :issue:`1429`
 -   Fixed calling deprecated ``jinja2.Markup`` without an argument.
     Use ``markupsafe.Markup`` instead. :issue:`1438`
--   Calling sync ``render`` for an async template uses ``asyncio.run``
-    on Python >= 3.7. This fixes a deprecation that Python 3.10
-    introduces. :issue:`1443`
+-   Calling sync ``render`` for an async template uses ``asyncio.new_event_loop``
+    This fixes a deprecation that Python 3.10 introduces. :issue:`1443`
 
 
 Version 3.0.0

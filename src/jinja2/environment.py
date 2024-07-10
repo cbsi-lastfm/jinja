@@ -1,6 +1,7 @@
 """Classes for managing templates and their runtime and compile time
 options.
 """
+
 import os
 import typing
 import typing as t
@@ -20,10 +21,10 @@ from .defaults import BLOCK_END_STRING
 from .defaults import BLOCK_START_STRING
 from .defaults import COMMENT_END_STRING
 from .defaults import COMMENT_START_STRING
-from .defaults import DEFAULT_FILTERS
+from .defaults import DEFAULT_FILTERS  # type: ignore[attr-defined]
 from .defaults import DEFAULT_NAMESPACE
 from .defaults import DEFAULT_POLICIES
-from .defaults import DEFAULT_TESTS
+from .defaults import DEFAULT_TESTS  # type: ignore[attr-defined]
 from .defaults import KEEP_TRAILING_NEWLINE
 from .defaults import LINE_COMMENT_PREFIX
 from .defaults import LINE_STATEMENT_PREFIX
@@ -55,6 +56,7 @@ from .utils import missing
 
 if t.TYPE_CHECKING:
     import typing_extensions as te
+
     from .bccache import BytecodeCache
     from .ext import Extension
     from .loaders import BaseLoader
@@ -99,7 +101,7 @@ def copy_cache(
     if cache is None:
         return None
 
-    if type(cache) is dict:
+    if type(cache) is dict:  # noqa E721
         return {}
 
     return LRUCache(cache.capacity)  # type: ignore
@@ -672,7 +674,7 @@ class Environment:
             stream = ext.filter_stream(stream)  # type: ignore
 
             if not isinstance(stream, TokenStream):
-                stream = TokenStream(stream, name, filename)  # type: ignore
+                stream = TokenStream(stream, name, filename)  # type: ignore[unreachable]
 
         return stream
 
@@ -713,8 +715,7 @@ class Environment:
         filename: t.Optional[str] = None,
         raw: "te.Literal[False]" = False,
         defer_init: bool = False,
-    ) -> CodeType:
-        ...
+    ) -> CodeType: ...
 
     @typing.overload
     def compile(
@@ -724,8 +725,7 @@ class Environment:
         filename: t.Optional[str] = None,
         raw: "te.Literal[True]" = ...,
         defer_init: bool = False,
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @internalcode
     def compile(
@@ -860,7 +860,10 @@ class Environment:
                     f.write(data.encode("utf8"))
 
         if zip is not None:
-            from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED, ZIP_STORED
+            from zipfile import ZIP_DEFLATED
+            from zipfile import ZIP_STORED
+            from zipfile import ZipFile
+            from zipfile import ZipInfo
 
             zip_file = ZipFile(
                 target, "w", dict(deflated=ZIP_DEFLATED, stored=ZIP_STORED)[zip]
@@ -1247,7 +1250,7 @@ class Template:
         namespace: t.MutableMapping[str, t.Any],
         globals: t.MutableMapping[str, t.Any],
     ) -> "Template":
-        t: "Template" = object.__new__(cls)
+        t: Template = object.__new__(cls)
         t.environment = environment
         t.globals = globals
         t.name = namespace["name"]
@@ -1281,19 +1284,7 @@ class Template:
         if self.environment.is_async:
             import asyncio
 
-            close = False
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                close = True
-
-            try:
-                return loop.run_until_complete(self.render_async(*args, **kwargs))
-            finally:
-                if close:
-                    loop.close()
+            return asyncio.run(self.render_async(*args, **kwargs))
 
         ctx = self.new_context(dict(*args, **kwargs))
 
@@ -1357,7 +1348,7 @@ class Template:
 
     async def generate_async(
         self, *args: t.Any, **kwargs: t.Any
-    ) -> t.AsyncIterator[str]:
+    ) -> t.AsyncGenerator[str, object]:
         """An async version of :meth:`generate`.  Works very similarly but
         returns an async iterator instead.
         """
@@ -1369,8 +1360,14 @@ class Template:
         ctx = self.new_context(dict(*args, **kwargs))
 
         try:
-            async for event in self.root_render_func(ctx):  # type: ignore
-                yield event
+            agen = self.root_render_func(ctx)
+            try:
+                async for event in agen:  # type: ignore
+                    yield event
+            finally:
+                # we can't use async with aclosing(...) because that's only
+                # in 3.10+
+                await agen.aclose()  # type: ignore
         except Exception:
             yield self.environment.handle_exception()
 
@@ -1419,7 +1416,9 @@ class Template:
         """
         ctx = self.new_context(vars, shared, locals)
         return TemplateModule(
-            self, ctx, [x async for x in self.root_render_func(ctx)]  # type: ignore
+            self,
+            ctx,
+            [x async for x in self.root_render_func(ctx)],  # type: ignore
         )
 
     @internalcode
@@ -1590,7 +1589,7 @@ class TemplateStream:
 
     def dump(
         self,
-        fp: t.Union[str, t.IO[t.Any]],
+        fp: t.Union[str, t.IO[bytes]],
         encoding: t.Optional[str] = None,
         errors: t.Optional[str] = "strict",
     ) -> None:
@@ -1608,22 +1607,25 @@ class TemplateStream:
             if encoding is None:
                 encoding = "utf-8"
 
-            fp = open(fp, "wb")
+            real_fp: t.IO[bytes] = open(fp, "wb")
             close = True
+        else:
+            real_fp = fp
+
         try:
             if encoding is not None:
                 iterable = (x.encode(encoding, errors) for x in self)  # type: ignore
             else:
                 iterable = self  # type: ignore
 
-            if hasattr(fp, "writelines"):
-                fp.writelines(iterable)
+            if hasattr(real_fp, "writelines"):
+                real_fp.writelines(iterable)
             else:
                 for item in iterable:
-                    fp.write(item)
+                    real_fp.write(item)
         finally:
             if close:
-                fp.close()
+                real_fp.close()
 
     def disable_buffering(self) -> None:
         """Disable the output buffering."""

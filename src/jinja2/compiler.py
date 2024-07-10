@@ -1,4 +1,5 @@
 """Compiles nodes from the parser into Python code."""
+
 import typing as t
 from contextlib import contextmanager
 from functools import update_wrapper
@@ -24,6 +25,7 @@ from .visitor import NodeVisitor
 
 if t.TYPE_CHECKING:
     import typing_extensions as te
+
     from .environment import Environment
 
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
@@ -53,15 +55,14 @@ def optimizeconst(f: F) -> F:
 
         return f(self, node, frame, **kwargs)
 
-    return update_wrapper(t.cast(F, new_func), f)
+    return update_wrapper(new_func, f)  # type: ignore[return-value]
 
 
 def _make_binop(op: str) -> t.Callable[["CodeGenerator", nodes.BinExpr, "Frame"], None]:
     @optimizeconst
     def visitor(self: "CodeGenerator", node: nodes.BinExpr, frame: Frame) -> None:
         if (
-            self.environment.sandboxed
-            and op in self.environment.intercepted_binops  # type: ignore
+            self.environment.sandboxed and op in self.environment.intercepted_binops  # type: ignore
         ):
             self.write(f"environment.call_binop(context, {op!r}, ")
             self.visit(node.left, frame)
@@ -84,8 +85,7 @@ def _make_unop(
     @optimizeconst
     def visitor(self: "CodeGenerator", node: nodes.UnaryExpr, frame: Frame) -> None:
         if (
-            self.environment.sandboxed
-            and op in self.environment.intercepted_unops  # type: ignore
+            self.environment.sandboxed and op in self.environment.intercepted_unops  # type: ignore
         ):
             self.write(f"environment.call_unop(context, {op!r}, ")
             self.visit(node.node, frame)
@@ -133,7 +133,7 @@ def has_safe_repr(value: t.Any) -> bool:
     if type(value) in {tuple, list, set, frozenset}:
         return all(has_safe_repr(v) for v in value)
 
-    if type(value) is dict:
+    if type(value) is dict:  # noqa E721
         return all(has_safe_repr(k) and has_safe_repr(v) for k, v in value.items())
 
     return False
@@ -551,10 +551,13 @@ class CodeGenerator(NodeVisitor):
         for node in nodes:
             visitor.visit(node)
 
-        for id_map, names, dependency in (self.filters, visitor.filters, "filters"), (
-            self.tests,
-            visitor.tests,
-            "tests",
+        for id_map, names, dependency in (
+            (self.filters, visitor.filters, "filters"),
+            (
+                self.tests,
+                visitor.tests,
+                "tests",
+            ),
         ):
             for name in sorted(names):
                 if name not in id_map:
@@ -829,7 +832,8 @@ class CodeGenerator(NodeVisitor):
         assert frame is None, "no root frame allowed"
         eval_ctx = EvalContext(self.environment, self.name)
 
-        from .runtime import exported, async_exported
+        from .runtime import async_exported
+        from .runtime import exported
 
         if self.environment.is_async:
             exported_names = sorted(exported + async_exported)
@@ -898,12 +902,15 @@ class CodeGenerator(NodeVisitor):
             if not self.environment.is_async:
                 self.writeline("yield from parent_template.root_render_func(context)")
             else:
-                self.writeline(
-                    "async for event in parent_template.root_render_func(context):"
-                )
+                self.writeline("agen = parent_template.root_render_func(context)")
+                self.writeline("try:")
+                self.indent()
+                self.writeline("async for event in agen:")
                 self.indent()
                 self.writeline("yield event")
                 self.outdent()
+                self.outdent()
+                self.writeline("finally: await agen.aclose()")
             self.outdent(1 + (not self.has_known_extends))
 
         # at this point we now have the blocks collected and can visit them too.
@@ -973,14 +980,20 @@ class CodeGenerator(NodeVisitor):
                 f"yield from context.blocks[{node.name!r}][0]({context})", node
             )
         else:
+            self.writeline(f"gen = context.blocks[{node.name!r}][0]({context})")
+            self.writeline("try:")
+            self.indent()
             self.writeline(
-                f"{self.choose_async()}for event in"
-                f" context.blocks[{node.name!r}][0]({context}):",
+                f"{self.choose_async()}for event in gen:",
                 node,
             )
             self.indent()
             self.simple_write("event", frame)
             self.outdent()
+            self.outdent()
+            self.writeline(
+                f"finally: {self.choose_async('await gen.aclose()', 'gen.close()')}"
+            )
 
         self.outdent(level)
 
@@ -1053,26 +1066,33 @@ class CodeGenerator(NodeVisitor):
             self.writeline("else:")
             self.indent()
 
-        skip_event_yield = False
+        def loop_body() -> None:
+            self.indent()
+            self.simple_write("event", frame)
+            self.outdent()
+
         if node.with_context:
             self.writeline(
-                f"{self.choose_async()}for event in template.root_render_func("
+                f"gen = template.root_render_func("
                 "template.new_context(context.get_all(), True,"
-                f" {self.dump_local_context(frame)})):"
+                f" {self.dump_local_context(frame)}))"
+            )
+            self.writeline("try:")
+            self.indent()
+            self.writeline(f"{self.choose_async()}for event in gen:")
+            loop_body()
+            self.outdent()
+            self.writeline(
+                f"finally: {self.choose_async('await gen.aclose()', 'gen.close()')}"
             )
         elif self.environment.is_async:
             self.writeline(
                 "for event in (await template._get_default_module_async())"
                 "._body_stream:"
             )
+            loop_body()
         else:
             self.writeline("yield from template._get_default_module()._body_stream")
-            skip_event_yield = True
-
-        if not skip_event_yield:
-            self.indent()
-            self.simple_write("event", frame)
-            self.outdent()
 
         if node.ignore_missing:
             self.outdent()

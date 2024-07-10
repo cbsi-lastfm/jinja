@@ -1,5 +1,4 @@
-Jinja
-=====
+# Jinja
 
 Jinja is a fast, expressive, extensible templating engine. Special
 placeholders in the template allow writing code similar to Python
@@ -26,51 +25,25 @@ possible, it shouldn't make the template designer's job difficult by
 restricting functionality too much.
 
 
-Installing
-----------
+## In A Nutshell
 
-Install and update using `pip`_:
+```jinja
+{% extends "base.html" %}
+{% block title %}Members{% endblock %}
+{% block content %}
+  <ul>
+  {% for user in users %}
+    <li><a href="{{ user.url }}">{{ user.username }}</a></li>
+  {% endfor %}
+  </ul>
+{% endblock %}
+```
 
-.. code-block:: text
-
-    $ pip install -U Jinja2
-
-.. _pip: https://pip.pypa.io/en/stable/getting-started/
-
-
-In A Nutshell
--------------
-
-.. code-block:: jinja
-
-    {% extends "base.html" %}
-    {% block title %}Members{% endblock %}
-    {% block content %}
-      <ul>
-      {% for user in users %}
-        <li><a href="{{ user.url }}">{{ user.username }}</a></li>
-      {% endfor %}
-      </ul>
-    {% endblock %}
-
-
-Donate
-------
+## Donate
 
 The Pallets organization develops and supports Jinja and other popular
 packages. In order to grow the community of contributors and users, and
-allow the maintainers to devote more time to the projects, `please
-donate today`_.
+allow the maintainers to devote more time to the projects, [please
+donate today][].
 
-.. _please donate today: https://palletsprojects.com/donate
-
-
-Links
------
-
--   Documentation: https://jinja.palletsprojects.com/
--   Changes: https://jinja.palletsprojects.com/changes/
--   PyPI Releases: https://pypi.org/project/Jinja2/
--   Source Code: https://github.com/pallets/jinja/
--   Issue Tracker: https://github.com/pallets/jinja/issues/
--   Chat: https://discord.gg/pallets
+[please donate today]: https://palletsprojects.com/donate

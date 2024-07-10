@@ -428,7 +428,7 @@ class LRUCache:
     def __init__(self, capacity: int) -> None:
         self.capacity = capacity
         self._mapping: t.Dict[t.Any, t.Any] = {}
-        self._queue: "te.Deque[t.Any]" = deque()
+        self._queue: te.Deque[t.Any] = deque()
         self._postinit()
 
     def _postinit(self) -> None:
@@ -450,9 +450,7 @@ class LRUCache:
         self.__dict__.update(d)
         self._postinit()
 
-    def __getnewargs__(
-        self,
-    ) -> t.Tuple[int,]:
+    def __getnewargs__(self) -> t.Tuple[t.Any, ...]:
         return (self.capacity,)
 
     def copy(self) -> "LRUCache":
